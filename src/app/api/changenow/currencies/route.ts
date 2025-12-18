@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
         }
 
         const searchParams = request.nextUrl.searchParams;
-        const network = searchParams.get('network') || 'matic';
+        const network = searchParams.get('network');
         const activeOnly = searchParams.get('active') !== 'false';
 
         // Fetch currencies from ChangeNow API

@@ -5,14 +5,6 @@ const CHANGENOW_API_URL = 'https://api.changenow.io/v2';
 /**
  * GET /api/changenow/estimate
  * Get estimated exchange amount
- * 
- * Query params:
- * - fromCurrency: Source currency ticker (required)
- * - toCurrency: Target currency ticker (required)
- * - fromAmount: Amount to exchange (required)
- * - fromNetwork: Source network (optional, defaults to "matic")
- * - toNetwork: Target network (optional, defaults to "matic")
- * - flow: Exchange flow type - "standard" or "fixed-rate" (optional, defaults to "standard")
  */
 export async function GET(request: NextRequest) {
     try {
@@ -29,8 +21,8 @@ export async function GET(request: NextRequest) {
         const fromCurrency = searchParams.get('fromCurrency');
         const toCurrency = searchParams.get('toCurrency');
         const fromAmount = searchParams.get('fromAmount');
-        const fromNetwork = searchParams.get('fromNetwork') || 'matic';
-        const toNetwork = searchParams.get('toNetwork') || 'matic';
+        const fromNetwork = searchParams.get('fromNetwork'); // Optional
+        const toNetwork = searchParams.get('toNetwork');     // Optional
         const flow = searchParams.get('flow') || 'standard';
 
         // Validate required parameters
@@ -55,14 +47,14 @@ export async function GET(request: NextRequest) {
         }
 
         // Build the API URL with query parameters
-        const params = new URLSearchParams({
-            fromCurrency: fromCurrency.toLowerCase(),
-            toCurrency: toCurrency.toLowerCase(),
-            fromAmount: fromAmount,
-            fromNetwork: fromNetwork.toLowerCase(),
-            toNetwork: toNetwork.toLowerCase(),
-            flow: flow,
-        });
+        const params = new URLSearchParams();
+        params.append('fromCurrency', fromCurrency.toLowerCase());
+        params.append('toCurrency', toCurrency.toLowerCase());
+        params.append('fromAmount', fromAmount);
+        params.append('flow', flow);
+
+        if (fromNetwork) params.append('fromNetwork', fromNetwork.toLowerCase());
+        if (toNetwork) params.append('toNetwork', toNetwork.toLowerCase());
 
         const response = await fetch(
             `${CHANGENOW_API_URL}/exchange/estimated-amount?${params.toString()}`,
@@ -83,16 +75,23 @@ export async function GET(request: NextRequest) {
 
         const estimateData = await response.json();
 
+        // Apply 1% markup
+        const MARKUP_PERCENTAGE = 1;
+        const estimatedAmount = parseFloat(estimateData.toAmount);
+        const amountAfterMarkup = estimatedAmount * (1 - MARKUP_PERCENTAGE / 100);
+
         return NextResponse.json({
             success: true,
             estimate: {
                 fromCurrency: fromCurrency.toLowerCase(),
                 toCurrency: toCurrency.toLowerCase(),
                 fromAmount: amount,
-                toAmount: estimateData.toAmount,
+                toAmount: amountAfterMarkup, // Amount user receives after markup
+                originalToAmount: estimatedAmount, // Original amount from ChangeNow
+                markupPercentage: MARKUP_PERCENTAGE,
                 flow: flow,
-                fromNetwork: fromNetwork,
-                toNetwork: toNetwork,
+                fromNetwork: fromNetwork || estimateData.fromNetwork,
+                toNetwork: toNetwork || estimateData.toNetwork,
                 rateId: estimateData.rateId || null, // For fixed-rate exchanges
                 validUntil: estimateData.validUntil || null,
             },

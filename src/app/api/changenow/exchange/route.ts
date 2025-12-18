@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { validateAddress } from '@/lib/validation';
 
 const CHANGENOW_API_URL = 'https://api.changenow.io/v2';
 
@@ -20,19 +21,6 @@ interface ExchangeRequestBody {
  * POST /api/changenow/exchange
  * Create a new exchange transaction
  * Returns a deposit address for the user to send tokens to
- * 
- * Request body:
- * - fromCurrency: Source currency ticker (required)
- * - toCurrency: Target currency ticker (required)
- * - fromAmount: Amount to exchange (required)
- * - address: User's wallet address to receive tokens (required)
- * - fromNetwork: Source network (optional, defaults to "matic")
- * - toNetwork: Target network (optional, defaults to "matic")
- * - refundAddress: Address for refunds if transaction fails (optional)
- * - refundExtraId: Extra ID for refund address if needed (optional)
- * - extraId: Extra ID for destination address if needed by currency (optional)
- * - flow: "standard" or "fixed-rate" (optional, defaults to "standard")
- * - rateId: Required for fixed-rate exchanges (optional)
  */
 export async function POST(request: NextRequest) {
     try {
@@ -52,8 +40,8 @@ export async function POST(request: NextRequest) {
             toCurrency,
             fromAmount,
             address,
-            fromNetwork = 'matic',
-            toNetwork = 'matic',
+            fromNetwork, // No default
+            toNetwork,   // No default
             refundAddress,
             refundExtraId,
             extraId,
@@ -86,20 +74,26 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Validate address format (basic validation for Polygon addresses)
-        if (!isValidPolygonAddress(address)) {
+        // Validate address format using shared validation logic
+        // If network is not provided, use a lax validation or try to infer?
+        // We'll pass the network if available, otherwise just check length
+        const targetNetwork = toNetwork || 'unknown';
+        if (!validateAddress(address, targetNetwork)) {
             return NextResponse.json(
-                { error: 'Invalid Polygon address format' },
+                { error: `Invalid ${targetNetwork !== 'unknown' ? targetNetwork : ''} address format` },
                 { status: 400 }
             );
         }
 
         // Validate refund address if provided
-        if (refundAddress && !isValidPolygonAddress(refundAddress)) {
-            return NextResponse.json(
-                { error: 'Invalid refund address format' },
-                { status: 400 }
-            );
+        if (refundAddress) {
+            const sourceNetwork = fromNetwork || 'unknown';
+            if (!validateAddress(refundAddress, sourceNetwork)) {
+                return NextResponse.json(
+                    { error: 'Invalid refund address format' },
+                    { status: 400 }
+                );
+            }
         }
 
         // For fixed-rate exchanges, rateId is required
@@ -116,23 +110,15 @@ export async function POST(request: NextRequest) {
             toCurrency: toCurrency.toLowerCase(),
             fromAmount: fromAmount.toString(),
             address: address,
-            fromNetwork: fromNetwork.toLowerCase(),
-            toNetwork: toNetwork.toLowerCase(),
             flow: flow,
         };
 
-        if (refundAddress) {
-            exchangeRequest.refundAddress = refundAddress;
-        }
-        if (refundExtraId) {
-            exchangeRequest.refundExtraId = refundExtraId;
-        }
-        if (extraId) {
-            exchangeRequest.extraId = extraId;
-        }
-        if (rateId && flow === 'fixed-rate') {
-            exchangeRequest.rateId = rateId;
-        }
+        if (fromNetwork) exchangeRequest.fromNetwork = fromNetwork.toLowerCase();
+        if (toNetwork) exchangeRequest.toNetwork = toNetwork.toLowerCase();
+        if (refundAddress) exchangeRequest.refundAddress = refundAddress;
+        if (refundExtraId) exchangeRequest.refundExtraId = refundExtraId;
+        if (extraId) exchangeRequest.extraId = extraId;
+        if (rateId && flow === 'fixed-rate') exchangeRequest.rateId = rateId;
 
         const response = await fetch(
             `${CHANGENOW_API_URL}/exchange`,
@@ -160,8 +146,8 @@ export async function POST(request: NextRequest) {
             success: true,
             exchange: {
                 id: exchangeData.id,
-                payinAddress: exchangeData.payinAddress, // Address to send tokens to
-                payoutAddress: exchangeData.payoutAddress, // User's receiving address
+                payinAddress: exchangeData.payinAddress,
+                payoutAddress: exchangeData.payoutAddress,
                 fromCurrency: exchangeData.fromCurrency,
                 toCurrency: exchangeData.toCurrency,
                 fromAmount: exchangeData.fromAmount,
@@ -169,8 +155,8 @@ export async function POST(request: NextRequest) {
                 fromNetwork: exchangeData.fromNetwork,
                 toNetwork: exchangeData.toNetwork,
                 flow: exchangeData.flow,
-                payinExtraId: exchangeData.payinExtraId || null, // If sending currency requires extra ID
-                status: 'waiting', // Initial status before deposit
+                payinExtraId: exchangeData.payinExtraId || null,
+                status: 'waiting',
                 createdAt: new Date().toISOString(),
             },
             instructions: {
@@ -187,13 +173,4 @@ export async function POST(request: NextRequest) {
             { status: 500 }
         );
     }
-}
-
-/**
- * Basic validation for Polygon (Ethereum-compatible) addresses
- */
-function isValidPolygonAddress(address: string): boolean {
-    // Polygon uses Ethereum-style addresses (0x followed by 40 hex characters)
-    const addressRegex = /^0x[a-fA-F0-9]{40}$/;
-    return addressRegex.test(address);
 }

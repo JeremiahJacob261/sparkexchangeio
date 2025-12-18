@@ -5,13 +5,6 @@ const CHANGENOW_API_URL = 'https://api.changenow.io/v2';
 /**
  * GET /api/changenow/min-amount
  * Get the minimum exchange amount for a currency pair
- * 
- * Query params:
- * - fromCurrency: Source currency ticker (required)
- * - toCurrency: Target currency ticker (required)
- * - fromNetwork: Source network (optional, defaults to "matic")
- * - toNetwork: Target network (optional, defaults to "matic")
- * - flow: Exchange flow type - "standard" or "fixed-rate" (optional, defaults to "standard")
  */
 export async function GET(request: NextRequest) {
     try {
@@ -27,8 +20,8 @@ export async function GET(request: NextRequest) {
         const searchParams = request.nextUrl.searchParams;
         const fromCurrency = searchParams.get('fromCurrency');
         const toCurrency = searchParams.get('toCurrency');
-        const fromNetwork = searchParams.get('fromNetwork') || 'matic';
-        const toNetwork = searchParams.get('toNetwork') || 'matic';
+        const fromNetwork = searchParams.get('fromNetwork');
+        const toNetwork = searchParams.get('toNetwork');
         const flow = searchParams.get('flow') || 'standard';
 
         // Validate required parameters
@@ -44,13 +37,13 @@ export async function GET(request: NextRequest) {
         }
 
         // Build the API URL with query parameters
-        const params = new URLSearchParams({
-            fromCurrency: fromCurrency.toLowerCase(),
-            toCurrency: toCurrency.toLowerCase(),
-            fromNetwork: fromNetwork.toLowerCase(),
-            toNetwork: toNetwork.toLowerCase(),
-            flow: flow,
-        });
+        const params = new URLSearchParams();
+        params.append('fromCurrency', fromCurrency.toLowerCase());
+        params.append('toCurrency', toCurrency.toLowerCase());
+        params.append('flow', flow);
+
+        if (fromNetwork) params.append('fromNetwork', fromNetwork.toLowerCase());
+        if (toNetwork) params.append('toNetwork', toNetwork.toLowerCase());
 
         const response = await fetch(
             `${CHANGENOW_API_URL}/exchange/range?${params.toString()}`,
@@ -77,9 +70,9 @@ export async function GET(request: NextRequest) {
                 fromCurrency: fromCurrency.toLowerCase(),
                 toCurrency: toCurrency.toLowerCase(),
                 minAmount: rangeData.minAmount,
-                maxAmount: rangeData.maxAmount || null, // May be null for standard flow
-                fromNetwork: fromNetwork,
-                toNetwork: toNetwork,
+                maxAmount: rangeData.maxAmount || null,
+                fromNetwork: fromNetwork || rangeData.fromNetwork,
+                toNetwork: toNetwork || rangeData.toNetwork,
                 flow: flow,
             },
         });
