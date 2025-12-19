@@ -1,10 +1,14 @@
 "use client";
+import Link from "next/link";
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import { ArrowDownUp, ChevronDown, Loader2, AlertCircle, Copy, CheckCircle } from "lucide-react";
+import { useState, useEffect } from "react";
+import { ArrowLeftRight, ChevronDown, Loader2, AlertCircle, Copy, CheckCircle, QrCode, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { validateAddress } from "@/lib/validation";
+import { QRCodeCanvas } from "qrcode.react";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Checkbox } from "@/components/ui/checkbox";
 
 // Types
 interface Currency {
@@ -12,17 +16,6 @@ interface Currency {
     name: string;
     image: string;
     network: string;
-}
-
-interface EstimateResponse {
-    fromCurrency: string;
-    toCurrency: string;
-    fromAmount: number;
-    toAmount: number;
-    originalToAmount?: number;
-    rateId?: string;
-    validUntil?: string;
-    minAmount?: number;
 }
 
 interface ExchangeResponse {
@@ -57,18 +50,27 @@ export function ExchangeWidget() {
     const [fromCurrency, setFromCurrency] = useState<Currency | null>(null);
     const [toCurrency, setToCurrency] = useState<Currency | null>(null);
 
-    const [fromAmount, setFromAmount] = useState<string>("10");
+    const [fromAmount, setFromAmount] = useState<string>("0.1");
     const [toAmount, setToAmount] = useState<string>("");
 
     const [destinationAddress, setDestinationAddress] = useState("");
     const [isAddressValid, setIsAddressValid] = useState(true);
     const [addressError, setAddressError] = useState("");
 
+    const [refundAddress, setRefundAddress] = useState("");
+    const [isRefundAddressValid, setIsRefundAddressValid] = useState(true);
+
     const [isEstimating, setIsEstimating] = useState(false);
     const [estimateError, setEstimateError] = useState<string | null>(null);
 
     const [isCreatingTx, setIsCreatingTx] = useState(false);
     const [txResult, setTxResult] = useState<ExchangeResponse | null>(null);
+
+    const [termsAccepted, setTermsAccepted] = useState(false);
+
+    // Transaction Status state
+    const [txStatus, setTxStatus] = useState<string>("waiting"); // waiting, confirming, exchanging, sending, finished, failed
+    const [isPolling, setIsPolling] = useState(false);
 
     // Dropdown states
     const [showFromDropdown, setShowFromDropdown] = useState(false);
@@ -85,12 +87,25 @@ export function ExchangeWidget() {
                 const data = await res.json();
 
                 if (data.success && data.currencies.length > 0) {
-                    setCurrencies(data.currencies);
-                    // Default selections
-                    const defaultFrom = data.currencies.find((c: Currency) => c.ticker === 'matic' && c.network === 'matic') || data.currencies[0];
-                    const defaultTo = data.currencies.find((c: Currency) => c.ticker === 'usdc' && c.network === 'matic') || data.currencies[1] || data.currencies[0];
-                    setFromCurrency(defaultFrom);
-                    setToCurrency(defaultTo);
+                    // Filter for Polygon (Matic) network only as requested previously
+                    const polygonCurrencies = data.currencies.filter((c: Currency) => c.network === 'matic');
+
+                    if (polygonCurrencies.length > 0) {
+                        setCurrencies(polygonCurrencies);
+
+                        // Default selections: ETH (on Matic) -> SOL (on Matic - if exists, or USDC)
+                        const defaultFrom = polygonCurrencies.find((c: Currency) => c.ticker === 'matic') || polygonCurrencies[0];
+                        const defaultTo = polygonCurrencies.find((c: Currency) => c.ticker === 'usdc') || polygonCurrencies[1] || polygonCurrencies[0];
+
+                        setFromCurrency(defaultFrom);
+                        setToCurrency(defaultTo);
+                    } else {
+                        setCurrencies(data.currencies);
+                        const defaultFrom = data.currencies[0];
+                        const defaultTo = data.currencies[1] || data.currencies[0];
+                        setFromCurrency(defaultFrom);
+                        setToCurrency(defaultTo);
+                    }
                 }
             } catch (error) {
                 console.error("Failed to fetch currencies", error);
@@ -148,7 +163,7 @@ export function ExchangeWidget() {
     // Validate Address
     useEffect(() => {
         if (!destinationAddress || !toCurrency) {
-            setIsAddressValid(true); // Don't show error when empty
+            setIsAddressValid(true);
             setAddressError("");
             return;
         }
@@ -157,31 +172,110 @@ export function ExchangeWidget() {
         setIsAddressValid(isValid);
         setAddressError(isValid ? "" : `Invalid ${toCurrency.network} address`);
 
-        // Save to localStorage
-        localStorage.setItem("lastDestinationAddress", destinationAddress);
-
     }, [destinationAddress, toCurrency]);
 
-    // Restore address from storage
+    // Validate Refund Address
     useEffect(() => {
-        const saved = localStorage.getItem("lastDestinationAddress");
-        if (saved) setDestinationAddress(saved);
-    }, []);
+        if (!refundAddress || !fromCurrency) {
+            setIsRefundAddressValid(true);
+            return;
+        }
+        setIsRefundAddressValid(validateAddress(refundAddress, fromCurrency.network));
+    }, [refundAddress, fromCurrency]);
+
+    // Polling Effect
+    useEffect(() => {
+        if (!txResult || !isPolling) return;
+
+        let intervalId: NodeJS.Timeout;
+
+        const checkStatus = async () => {
+            try {
+                const res = await fetch(`/api/changenow/transaction/${txResult.id}`);
+                const data = await res.json();
+
+                if (data.success) {
+                    setTxStatus(data.status);
+
+                    if (data.status === 'finished' || data.status === 'failed' || data.status === 'refunded' || data.status === 'expired') {
+                        setIsPolling(false);
+                    }
+                }
+            } catch (error) {
+                console.error("Polling error", error);
+            }
+        };
+
+        // Check immediately then poll
+        checkStatus();
+        intervalId = setInterval(checkStatus, 15000); // Poll every 15s
+
+        return () => clearInterval(intervalId);
+    }, [txResult, isPolling]);
+
+    // Start polling when txResult is set
+    useEffect(() => {
+        if (txResult) {
+            setTxStatus("waiting");
+            setIsPolling(true);
+        }
+    }, [txResult]);
+
+    // Helpers for Stepper
+    const getStepStatus = (step: 'deposit' | 'exchange' | 'send' | 'finish') => {
+        const statusMap: Record<string, number> = {
+            'waiting': 0,
+            'confirming': 1,
+            'exchanging': 2,
+            'sending': 3,
+            'finished': 4,
+            'failed': -1,
+            'refunded': -1,
+            'expired': -1
+        };
+
+        const currentStepValue = statusMap[txStatus] ?? 0;
+
+        if (currentStepValue === -1) return 'error';
+
+        if (step === 'deposit') {
+            if (txStatus === 'waiting') return 'active';
+            return 'completed';
+        }
+        if (step === 'exchange') {
+            if (txStatus === 'waiting') return 'pending';
+            if (txStatus === 'confirming' || txStatus === 'exchanging') return 'active';
+            return 'completed';
+        }
+        if (step === 'send') {
+            if (['waiting', 'confirming', 'exchanging'].includes(txStatus)) return 'pending';
+            if (txStatus === 'sending') return 'active';
+            return 'completed';
+        }
+        if (step === 'finish') {
+            if (txStatus === 'finished') return 'completed';
+            return 'pending';
+        }
+        return 'pending';
+    };
+
 
     const handleSwapCurrencies = () => {
         const temp = fromCurrency;
         setFromCurrency(toCurrency);
         setToCurrency(temp);
+
+        // Also swap amounts logic could be here but usually better to keep fromAmount
     };
 
     const handleCreateExchange = async () => {
-        if (!fromCurrency || !toCurrency || !fromAmount || !destinationAddress || !isAddressValid) return;
+        if (!fromCurrency || !toCurrency || !fromAmount || !destinationAddress || !isAddressValid || !termsAccepted) return;
 
         setIsCreatingTx(true);
         setEstimateError(null);
 
         try {
-            const payload = {
+            const payload: any = {
                 fromCurrency: fromCurrency.ticker,
                 toCurrency: toCurrency.ticker,
                 fromAmount: parseFloat(fromAmount),
@@ -190,6 +284,10 @@ export function ExchangeWidget() {
                 toNetwork: toCurrency.network,
                 flow: 'standard'
             };
+
+            if (refundAddress) {
+                payload.refundAddress = refundAddress;
+            }
 
             const res = await fetch('/api/changenow/exchange', {
                 method: 'POST',
@@ -201,7 +299,7 @@ export function ExchangeWidget() {
 
             if (data.success) {
                 setTxResult(data.exchange);
-                // Save tx to storage
+                // Save to local storage as fallback
                 const txHistory = JSON.parse(localStorage.getItem("txHistory") || "[]");
                 txHistory.push({
                     id: data.exchange.id,
@@ -225,16 +323,19 @@ export function ExchangeWidget() {
 
     const reset = () => {
         setTxResult(null);
-        setFromAmount("10");
+        setFromAmount("0.1");
         setToAmount("");
         setEstimateError(null);
+        setDestinationAddress("");
+        setRefundAddress("");
+        setTermsAccepted(false);
     };
 
     // --- RENDER ---
 
     if (isLoadingCurrencies) {
         return (
-            <div className="w-full max-w-md mx-auto h-[400px] flex items-center justify-center glass rounded-2xl">
+            <div className="w-full max-w-4xl mx-auto h-[400px] flex items-center justify-center glass rounded-2xl">
                 <Loader2 className="w-8 h-8 animate-spin text-primary" />
             </div>
         );
@@ -243,46 +344,125 @@ export function ExchangeWidget() {
     // Success View
     if (txResult) {
         return (
-            <div className="w-full max-w-md mx-auto">
-                <div className="glass rounded-2xl p-6 shadow-2xl shadow-purple-500/10 border border-success/20 animate-in fade-in zoom-in duration-300">
-                    <div className="text-center mb-6">
-                        <div className="w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <CheckCircle className="w-8 h-8 text-green-500" />
-                        </div>
-                        <h3 className="text-xl font-bold text-foreground">Exchange Created!</h3>
-                        <p className="text-sm text-muted-foreground mt-2">ID: {txResult.id}</p>
+            <div className="w-full max-w-2xl mx-auto">
+                <div className="glass rounded-2xl p-8 shadow-2xl border border-primary/20 animate-in fade-in zoom-in duration-300">
+                    <div className="text-center mb-8">
+                        {txStatus === 'finished' ? (
+                            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-500/20 mb-4 ring-1 ring-green-500/40">
+                                <CheckCircle className="w-8 h-8 text-green-500" />
+                            </div>
+                        ) : (
+                            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4 ring-1 ring-primary/20">
+                                <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                            </div>
+                        )}
+
+                        <h3 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
+                            {txStatus === 'waiting' && 'Awaiting Deposit'}
+                            {(txStatus === 'confirming' || txStatus === 'exchanging') && 'Exchanging...'}
+                            {txStatus === 'sending' && 'Sending to You...'}
+                            {txStatus === 'finished' && 'Exchange Completed!'}
+                            {(txStatus === 'failed' || txStatus === 'refunded' || txStatus === 'expired') && 'Exchange Failed'}
+                        </h3>
+                        <p className="text-muted-foreground mt-2 font-mono text-sm">ID: {txResult.id}</p>
                     </div>
 
-                    <div className="space-y-4 bg-secondary/30 p-4 rounded-xl mb-6">
-                        <div className="text-center">
-                            <p className="text-sm text-muted-foreground mb-1">Send exactly</p>
-                            <p className="text-2xl font-bold text-primary">
-                                {txResult.fromAmount} <span className="text-lg">{txResult.fromCurrency.toUpperCase()}</span>
-                            </p>
-                        </div>
+                    {/* Stepper */}
+                    <div className="flex items-center justify-between mb-10 px-4 relative">
+                        {/* Connecting Line */}
+                        <div className="absolute left-4 right-4 top-1/2 h-0.5 bg-white/10 -z-10" />
 
-                        <div className="relative">
-                            <label className="text-xs text-muted-foreground ml-1">To this address:</label>
-                            <div className="flex items-center gap-2 mt-1 bg-background p-3 rounded-lg border border-border">
-                                <code className="text-xs break-all flex-1">{txResult.payinAddress}</code>
-                                <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    className="h-8 w-8"
-                                    onClick={() => navigator.clipboard.writeText(txResult.payinAddress)}
-                                >
-                                    <Copy className="w-4 h-4" />
-                                </Button>
+                        {[
+                            { id: 'deposit', label: 'Deposit' },
+                            { id: 'exchange', label: 'Exchange' },
+                            { id: 'send', label: 'Sending' },
+                            { id: 'finish', label: 'Done' }
+                        ].map((step, index) => {
+                            const status = getStepStatus(step.id as any);
+                            return (
+                                <div key={step.id} className="flex flex-col items-center gap-2 bg-[#0a0a0a] px-2 rounded-lg">
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all duration-500 ${status === 'completed' ? 'bg-green-500 border-green-500 text-black' :
+                                        status === 'active' ? 'bg-primary border-primary text-white scale-110 shadow-[0_0_15px_rgba(139,92,246,0.5)]' :
+                                            'bg-black border-white/20 text-white/40'
+                                        }`}>
+                                        {status === 'completed' ? <CheckCircle className="w-5 h-5" /> : <span className="text-xs font-bold">{index + 1}</span>}
+                                    </div>
+                                    <span className={`text-xs font-medium ${status === 'active' ? 'text-primary' :
+                                        status === 'completed' ? 'text-green-500' : 'text-muted-foreground'
+                                        }`}>{step.label}</span>
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    {/* Deposit Instructions (Only show if waiting) */}
+                    {txStatus === 'waiting' && (
+                        <div className="grid md:grid-cols-2 gap-8 mb-8 animate-in fade-in duration-500">
+                            <div className="bg-black/20 p-6 rounded-xl border border-white/5 flex flex-col items-center justify-center space-y-4">
+                                <div className="bg-white p-2 rounded-lg">
+                                    <QRCodeCanvas value={txResult.payinAddress} size={160} />
+                                </div>
+                                <p className="text-xs text-muted-foreground">Scan to deposit</p>
+                            </div>
+
+                            <div className="space-y-6">
+                                <div>
+                                    <p className="text-sm text-muted-foreground mb-2">Send Exact Amount</p>
+                                    <div className="flex items-end gap-2">
+                                        <span className="text-3xl font-bold text-white">{txResult.fromAmount}</span>
+                                        <span className="text-xl font-medium text-primary mb-1">{txResult.fromCurrency.toUpperCase()}</span>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <p className="text-sm text-muted-foreground mb-2">To Deposit Address</p>
+                                    <div className="flex items-center gap-2 bg-black/40 p-3 rounded-lg border border-white/10 group hover:border-primary/50 transition-colors">
+                                        <code className="text-xs flex-1 break-all font-mono text-gray-300">{txResult.payinAddress}</code>
+                                        <Button
+                                            size="icon"
+                                            variant="ghost"
+                                            className="h-8 w-8 hover:text-primary hover:bg-primary/10"
+                                            onClick={() => navigator.clipboard.writeText(txResult.payinAddress)}
+                                        >
+                                            <Copy className="w-4 h-4" />
+                                        </Button>
+                                    </div>
+                                </div>
+
+                                <div className="text-xs bg-yellow-500/10 text-yellow-500 p-3 rounded-lg border border-yellow-500/20">
+                                    <p>⚠️ Send only {txResult.fromCurrency.toUpperCase()} to this address. Sending other coins may result in permanent loss.</p>
+                                </div>
                             </div>
                         </div>
-                    </div>
+                    )}
 
-                    <Button onClick={reset} className="w-full" variant="outline">
-                        Start New Exchange
-                    </Button>
-                    <p className="text-xs text-center text-muted-foreground mt-4">
-                        Track status in the dashboard or save your Transaction ID.
-                    </p>
+                    {/* Completion Info */}
+                    {txStatus === 'finished' && (
+                        <div className="text-center p-6 bg-green-500/5 rounded-xl border border-green-500/20 mb-8 animate-in fade-in zoom-in duration-300">
+                            <p className="text-green-500 font-medium mb-1">Successfully Sent</p>
+                            <p className="text-3xl font-bold text-white mb-2">{txResult.toAmount} {txResult.toCurrency.toUpperCase()}</p>
+                            <p className="text-sm text-muted-foreground break-all">to {txResult.payoutAddress}</p>
+                        </div>
+                    )}
+
+                    {/* Error Info */}
+                    {(txStatus === 'failed' || txStatus === 'expired' || txStatus === 'refunded') && (
+                        <div className="text-center p-6 bg-red-500/5 rounded-xl border border-red-500/20 mb-8 animate-in fade-in zoom-in duration-300">
+                            <p className="text-red-500 font-medium mb-1">Transaction Failed</p>
+                            <p className="text-sm text-muted-foreground">Please contact support with your Transaction ID if you verified funds were sent.</p>
+                        </div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <Button onClick={reset} className="w-full" variant="outline">
+                            New Exchange
+                        </Button>
+                        <Button asChild className="w-full" variant="default">
+                            <Link href={`/status/${txResult.id}`} target="_blank">
+                                Track Order
+                            </Link>
+                        </Button>
+                    </div>
                 </div>
             </div>
         );
@@ -290,170 +470,207 @@ export function ExchangeWidget() {
 
     // Main Swap View
     return (
-        <div className="w-full max-w-md mx-auto">
-            <div className="glass rounded-2xl p-6 shadow-2xl shadow-purple-500/10">
-                <h3 className="text-lg font-semibold mb-4 text-center">
-                    Swap Cryptocurrencies
-                </h3>
+        <div className="max-w-3xl mx-auto w-full">
+            <div className="glass rounded-2xl p-1 shadow-2xl overflow-hidden ">
+                <div className="bg-card/50 backdrop-blur-xl p-6 md:p-8 rounded-2xl border border-white/5">
+                    <h3 className="text-xl font-bold text-center mb-8 text-white">Exchange Crypto</h3>
 
-                {estimateError && (
-                    <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center gap-2 text-sm text-red-500">
-                        <AlertCircle className="w-4 h-4 shrink-0" />
-                        <span>{estimateError}</span>
-                    </div>
-                )}
-
-                {/* From Input */}
-                <div className="space-y-2 mb-2">
-                    <label className="text-xs font-medium text-muted-foreground ml-1">You send</label>
-                    <div className="flex gap-2 p-1 bg-secondary/50 rounded-xl border border-transparent focus-within:border-primary/50 transition-colors">
-                        <div className="flex-1">
-                            <Input
-                                type="number"
-                                value={fromAmount}
-                                onChange={(e) => setFromAmount(e.target.value)}
-                                className="text-xl font-bold bg-transparent border-0 h-14 focus-visible:ring-0 px-3"
-                                placeholder="0.00"
-                            />
+                    {estimateError && (
+                        <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-3 text-sm text-red-500">
+                            <AlertCircle className="w-5 h-5 shrink-0" />
+                            <span>{estimateError}</span>
                         </div>
-                        <div className="relative">
-                            <button
-                                className="flex items-center gap-2 px-3 h-14 rounded-lg hover:bg-background/50 transition-colors min-w-[110px]"
-                                onClick={() => { setShowFromDropdown(!showFromDropdown); setShowToDropdown(false); }}
-                            >
-                                {fromCurrency?.image && <img src={fromCurrency.image} alt={fromCurrency.ticker} className="w-6 h-6 rounded-full" />}
-                                <span className="font-bold uppercase">{fromCurrency?.ticker || 'SEL'}</span>
-                                <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                            </button>
+                    )}
 
-                            {showFromDropdown && (
-                                <div className="absolute right-0 top-full mt-2 w-64 max-h-60 overflow-y-auto bg-card rounded-xl border border-border shadow-xl z-20">
-                                    {currencies.map(c => (
-                                        <button
-                                            key={c.ticker + c.network}
-                                            className="w-full flex items-center gap-3 p-3 hover:bg-muted text-left"
-                                            onClick={() => { setFromCurrency(c); setShowFromDropdown(false); }}
-                                        >
-                                            <img src={c.image} className="w-6 h-6 rounded-full" alt="" />
-                                            <div>
-                                                <div className="font-bold uppercase">{c.ticker}</div>
-                                                <div className="text-xs text-muted-foreground">{c.name} <span className="opacity-50">({c.network})</span></div>
+                    <div className="flex flex-col md:flex-row gap-4 relative">
+                        {/* You Send */}
+                        <div className="flex-1 bg-black/20 rounded-xl border border-white/5 p-4 hover:border-primary/30 transition-colors focus-within:border-primary/50">
+                            <label className="text-sm text-muted-foreground mb-2 block">You send</label>
+                            <div className="flex items-center gap-4">
+                                <Input
+                                    type="number"
+                                    value={fromAmount}
+                                    onChange={(e) => setFromAmount(e.target.value)}
+                                    className="text-3xl font-bold bg-transparent border-0 h-auto p-0 focus-visible:ring-0 shadow-none text-white placeholder:text-gray-700"
+                                    placeholder="0.00"
+                                />
+                                <div className="relative shrink-0">
+                                    <button
+                                        className="flex items-center gap-2 bg-white/5 hover:bg-white/10 px-3 py-2 rounded-lg border border-white/10 transition-colors"
+                                        onClick={() => { setShowFromDropdown(!showFromDropdown); setShowToDropdown(false); }}
+                                    >
+                                        {fromCurrency?.image && <img src={fromCurrency.image} alt="" className="w-6 h-6 rounded-full" />}
+                                        <span className="font-bold uppercase text-white">{fromCurrency?.ticker || 'SEL'}</span>
+                                        <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                                    </button>
+                                    {showFromDropdown && (
+                                        <div className="absolute right-0 top-full mt-2 w-64 max-h-60 overflow-y-auto bg-[#1a1b1e] rounded-xl border border-white/10 shadow-2xl z-30">
+                                            <div className="p-2 space-y-1">
+                                                {currencies.map(c => (
+                                                    <button
+                                                        key={c.ticker + c.network}
+                                                        className="w-full flex items-center gap-3 p-2 hover:bg-white/5 rounded-lg text-left transition-colors"
+                                                        onClick={() => { setFromCurrency(c); setShowFromDropdown(false); }}
+                                                    >
+                                                        <img src={c.image} className="w-6 h-6 rounded-full" alt="" />
+                                                        <div>
+                                                            <div className="font-bold uppercase text-sm text-white">{c.ticker}</div>
+                                                            <div className="text-xs text-muted-foreground">{c.name}</div>
+                                                        </div>
+                                                    </button>
+                                                ))}
                                             </div>
-                                        </button>
-                                    ))}
+                                        </div>
+                                    )}
                                 </div>
-                            )}
+                            </div>
+                        </div>
+
+                        {/* Swap Icon */}
+                        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 md:flex hidden">
+                            <button
+                                onClick={handleSwapCurrencies}
+                                className="w-10 h-10 bg-[#1a1b1e] rounded-lg border border-white/10 flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/50 transition-all hover:scale-110"
+                            >
+                                <ArrowLeftRight className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        {/* You Get */}
+                        <div className="flex-1 bg-black/20 rounded-xl border border-white/5 p-4 hover:border-primary/30 transition-colors">
+                            <label className="text-sm text-muted-foreground mb-2 block">You get (estimated)</label>
+                            <div className="flex items-center gap-4">
+                                <div className="relative flex-1">
+                                    {isEstimating && <Loader2 className="absolute left-0 top-1/2 -translate-y-1/2 w-5 h-5 animate-spin text-muted-foreground" />}
+                                    <Input
+                                        type="text"
+                                        value={toAmount}
+                                        readOnly
+                                        className={`text-3xl font-bold bg-transparent border-0 h-auto p-0 focus-visible:ring-0 shadow-none text-white placeholder:text-gray-700 ${isEstimating ? 'opacity-0' : 'opacity-100'}`}
+                                        placeholder="0.00"
+                                    />
+                                </div>
+                                <div className="relative shrink-0">
+                                    <button
+                                        className="flex items-center gap-2 bg-white/5 hover:bg-white/10 px-3 py-2 rounded-lg border border-white/10 transition-colors"
+                                        onClick={() => { setShowToDropdown(!showToDropdown); setShowFromDropdown(false); }}
+                                    >
+                                        {toCurrency?.image && <img src={toCurrency.image} alt="" className="w-6 h-6 rounded-full" />}
+                                        <span className="font-bold uppercase text-white">{toCurrency?.ticker || 'SEL'}</span>
+                                        <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                                    </button>
+                                    {showToDropdown && (
+                                        <div className="absolute right-0 top-full mt-2 w-64 max-h-60 overflow-y-auto bg-[#1a1b1e] rounded-xl border border-white/10 shadow-2xl z-20">
+                                            <div className="p-2 space-y-1">
+                                                {currencies.map(c => (
+                                                    <button
+                                                        key={c.ticker + c.network}
+                                                        className="w-full flex items-center gap-3 p-2 hover:bg-white/5 rounded-lg text-left transition-colors"
+                                                        onClick={() => { setToCurrency(c); setShowToDropdown(false); }}
+                                                    >
+                                                        <img src={c.image} className="w-6 h-6 rounded-full" alt="" />
+                                                        <div>
+                                                            <div className="font-bold uppercase text-sm text-white">{c.ticker}</div>
+                                                            <div className="text-xs text-muted-foreground">{c.name}</div>
+                                                        </div>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                {/* Swap Divider */}
-                <div className="flex justify-center -my-3 relative z-10">
-                    <button
-                        onClick={handleSwapCurrencies}
-                        className="w-10 h-10 rounded-full bg-background border border-border flex items-center justify-center shadow-sm hover:scale-110 transition-transform text-muted-foreground hover:text-primary"
+                    {/* Rate Info */}
+                    <div className="flex items-center gap-4 text-xs font-medium mt-4 mb-8">
+                        <span className="text-green-500 underline decoration-dotted underline-offset-2 cursor-help">No extra fees</span>
+                        {fromCurrency && toCurrency && toAmount && (
+                            <span className="text-muted-foreground">
+                                Estimated rate: 1 {fromCurrency.ticker.toUpperCase()} ≈ {(parseFloat(toAmount) / parseFloat(fromAmount || '1')).toFixed(6)} {toCurrency.ticker.toUpperCase()}
+                            </span>
+                        )}
+                    </div>
+
+                    {/* Recipient Wallet */}
+                    <div className="space-y-4 mb-8">
+                        <label className="text-sm text-muted-foreground">Recipient Wallet</label>
+                        <div className="relative">
+                            <Input
+                                value={destinationAddress}
+                                onChange={(e) => setDestinationAddress(e.target.value)}
+                                className={`h-14 bg-black/20 border-white/10 text-white rounded-xl px-4 focus-visible:ring-primary/50 text-base ${!isAddressValid ? 'border-red-500' : ''}`}
+                                placeholder={`Enter ${toCurrency?.ticker.toUpperCase()} payout address`}
+                            />
+                            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground">
+                                <QrCode className="w-5 h-5 opacity-50 hover:opacity-100 cursor-pointer" />
+                            </div>
+                        </div>
+                        {!isAddressValid && (
+                            <p className="text-xs text-red-500 pl-1">{addressError}</p>
+                        )}
+                    </div>
+
+                    {/* Exchange Button */}
+                    <Button
+                        size="xl"
+                        variant="gradient"
+                        className="w-full h-14 text-lg font-bold shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:hover:scale-100 disabled:active:scale-100"
+                        onClick={handleCreateExchange}
+                        disabled={isCreatingTx || isEstimating || !fromAmount || !toAmount || !destinationAddress || !isAddressValid || !termsAccepted}
                     >
-                        <ArrowDownUp className="w-4 h-4" />
-                    </button>
-                </div>
+                        {isCreatingTx ? (
+                            <>
+                                <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                                Processing...
+                            </>
+                        ) : (
+                            "Exchange"
+                        )}
+                    </Button>
 
-                {/* To Input */}
-                <div className="space-y-2 mt-2">
-                    <label className="text-xs font-medium text-muted-foreground ml-1">You receive (estimated)</label>
-                    <div className="flex gap-2 p-1 bg-secondary/50 rounded-xl border border-transparent focus-within:border-primary/50 transition-colors">
-                        <div className="flex-1 relative">
-                            {isEstimating && (
-                                <div className="absolute inset-0 flex items-center pl-3">
-                                    <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                    {/* Terms */}
+                    <div className="flex items-center justify-center gap-2 mt-6">
+                        <Checkbox
+                            id="terms"
+                            checked={termsAccepted}
+                            onCheckedChange={(checked: boolean) => setTermsAccepted(checked)}
+                            className="border-white/20 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
+                        />
+                        <label
+                            htmlFor="terms"
+                            className="text-xs text-muted-foreground leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                        >
+                            I've read and agree to the provider's <span className="underline hover:text-primary cursor-pointer">Terms of use</span> and <span className="underline hover:text-primary cursor-pointer">Privacy Policy</span>
+                        </label>
+                    </div>
+
+                    <div className="my-6 border-b border-white/5"></div>
+
+                    {/* Refund Wallet / Advanced */}
+                    <Accordion type="single" collapsible className="w-full">
+                        <AccordionItem value="advanced" className="border-0">
+                            <AccordionTrigger className="text-xs font-bold text-muted-foreground uppercase opacity-70 hover:opacity-100 hover:no-underline py-2">
+                                <div className="flex items-center gap-2 text-[10px] tracking-wider">
+                                    Advanced Settings
                                 </div>
-                            )}
-                            <Input
-                                type="text"
-                                value={toAmount}
-                                readOnly
-                                className={`text-xl font-bold bg-transparent border-0 h-14 focus-visible:ring-0 px-3 ${isEstimating ? 'text-transparent' : ''}`}
-                                placeholder="0.00"
-                            />
-                        </div>
-                        <div className="relative">
-                            <button
-                                className="flex items-center gap-2 px-3 h-14 rounded-lg hover:bg-background/50 transition-colors min-w-[110px]"
-                                onClick={() => { setShowToDropdown(!showToDropdown); setShowFromDropdown(false); }}
-                            >
-                                {toCurrency?.image && <img src={toCurrency.image} alt={toCurrency.ticker} className="w-6 h-6 rounded-full" />}
-                                <span className="font-bold uppercase">{toCurrency?.ticker || 'SEL'}</span>
-                                <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                            </button>
-                            {showToDropdown && (
-                                <div className="absolute right-0 top-full mt-2 w-64 max-h-60 overflow-y-auto bg-card rounded-xl border border-border shadow-xl z-20">
-                                    {currencies.map(c => (
-                                        <button
-                                            key={c.ticker + c.network}
-                                            className="w-full flex items-center gap-3 p-3 hover:bg-muted text-left"
-                                            onClick={() => { setToCurrency(c); setShowToDropdown(false); }}
-                                        >
-                                            <img src={c.image} className="w-6 h-6 rounded-full" alt="" />
-                                            <div>
-                                                <div className="font-bold uppercase">{c.ticker}</div>
-                                                <div className="text-xs text-muted-foreground">{c.name} <span className="opacity-50">({c.network})</span></div>
-                                            </div>
-                                        </button>
-                                    ))}
+                            </AccordionTrigger>
+                            <AccordionContent>
+                                <div className="pt-2 space-y-2">
+                                    <label className="text-sm text-muted-foreground">Refund Wallet (Optional)</label>
+                                    <Input
+                                        value={refundAddress}
+                                        onChange={(e) => setRefundAddress(e.target.value)}
+                                        className={`h-12 bg-black/20 border-white/10 text-white rounded-xl ${!isRefundAddressValid ? 'border-red-500' : ''}`}
+                                        placeholder={`Enter ${fromCurrency?.ticker.toUpperCase()} refund address`}
+                                    />
+                                    {!isRefundAddressValid && <p className="text-xs text-red-500">Invalid address</p>}
                                 </div>
-                            )}
-                        </div>
-                    </div>
+                            </AccordionContent>
+                        </AccordionItem>
+                    </Accordion>
                 </div>
-
-                {/* Destination Address */}
-                <div className="space-y-2 mt-4">
-                    <label className="text-xs font-medium text-muted-foreground ml-1">
-                        Destination {toCurrency?.ticker.toUpperCase()} Address
-                    </label>
-                    <Input
-                        value={destinationAddress}
-                        onChange={(e) => setDestinationAddress(e.target.value)}
-                        className={`h-12 bg-secondary/30 ${!isAddressValid ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
-                        placeholder={`Enter your ${toCurrency?.name || 'wallet'} address`}
-                    />
-                    {!isAddressValid && (
-                        <p className="text-xs text-red-500 ml-1">{addressError}</p>
-                    )}
-                </div>
-
-                {/* Exchange Info */}
-                <div className="mt-4 p-3 rounded-lg bg-secondary/30 text-xs space-y-1">
-                    <div className="flex justify-between text-muted-foreground">
-                        <span>Includes Fee</span>
-                        <span>1.0%</span>
-                    </div>
-                    <div className="flex justify-between text-muted-foreground">
-                        <span>Estimated Arrival</span>
-                        <span>5-30 mins</span>
-                    </div>
-                </div>
-
-                {/* Main Action Button */}
-                <Button
-                    variant="gradient"
-                    size="xl"
-                    className="w-full mt-4 font-bold text-lg"
-                    onClick={handleCreateExchange}
-                    disabled={isCreatingTx || isEstimating || !fromAmount || !toAmount || !destinationAddress || !isAddressValid}
-                >
-                    {isCreatingTx ? (
-                        <>
-                            <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                            Creating Exchange...
-                        </>
-                    ) : (
-                        "Exchange Now"
-                    )}
-                </Button>
-
-                <p className="text-xs text-center text-muted-foreground mt-4">
-                    By clicking Exchange, you agree to our Terms of Service.
-                </p>
             </div>
         </div>
     );

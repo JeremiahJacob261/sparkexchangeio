@@ -47,7 +47,7 @@ export default function Home() {
 
               {/* Subheadline */}
               <p className="text-lg md:text-xl text-muted-foreground mb-8 max-w-xl mx-auto lg:mx-0 animate-fade-in-up animation-delay-400">
-                Secure, fast, cheap, anonymous swaps. No account needed. Exchange between 900+ cryptocurrencies instantly.
+                Secure, fast, cheap, anonymous swaps. No account needed. Exchange between 900+ polygon matic tokens instantly.
               </p>
 
               {/* CTA Buttons */}

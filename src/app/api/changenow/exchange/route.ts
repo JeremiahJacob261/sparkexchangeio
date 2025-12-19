@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateAddress } from '@/lib/validation';
+import { supabase } from '@/lib/supabase';
 
 const CHANGENOW_API_URL = 'https://api.changenow.io/v2';
 
@@ -141,6 +142,24 @@ export async function POST(request: NextRequest) {
         }
 
         const exchangeData = await response.json();
+
+        // Store transaction in Supabase
+        const { error: dbError } = await supabase
+            .from('transactions')
+            .insert({
+                changenow_id: exchangeData.id,
+                payin_address: exchangeData.payinAddress,
+                payout_address: exchangeData.payoutAddress,
+                from_currency: exchangeData.fromCurrency,
+                to_currency: exchangeData.toCurrency,
+                from_amount: parseFloat(exchangeData.fromAmount),
+                to_amount: parseFloat(exchangeData.toAmount),
+                status: 'AWAITING_DEPOSIT'
+            });
+
+        if (dbError) {
+            console.error('Failed to save transaction to database:', dbError);
+        }
 
         return NextResponse.json({
             success: true,
