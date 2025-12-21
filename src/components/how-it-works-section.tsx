@@ -56,7 +56,7 @@ export function HowItWorksSection() {
                                 </div>
 
                                 {/* Icon */}
-                                <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-violet-600 to-purple-600 flex items-center justify-center mb-6 shadow-lg shadow-purple-500/25 group-hover:shadow-purple-500/40 transition-all duration-300">
+                                <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-yellow-500 to-amber-500 flex items-center justify-center mb-6 shadow-lg shadow-amber-500/25 group-hover:shadow-amber-500/40 transition-all duration-300">
                                     <step.icon className="w-8 h-8 text-white" />
                                 </div>
 

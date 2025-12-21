@@ -376,7 +376,7 @@ export function ExchangeWidget() {
                             return (
                                 <div key={step.id} className="flex flex-col items-center gap-2 bg-[#0a0a0a] px-2 rounded-lg">
                                     <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all duration-500 ${status === 'completed' ? 'bg-green-500 border-green-500 text-black' :
-                                        status === 'active' ? 'bg-primary border-primary text-white scale-110 shadow-[0_0_15px_rgba(139,92,246,0.5)]' :
+                                        status === 'active' ? 'bg-primary border-primary text-white scale-110 shadow-[0_0_15px_rgba(234,179,8,0.5)]' :
                                             'bg-black border-white/20 text-white/40'
                                         }`}>
                                         {status === 'completed' ? <CheckCircle className="w-5 h-5" /> : <span className="text-xs font-bold">{index + 1}</span>}

@@ -15,7 +15,7 @@ export function Footer() {
                                 alt="Spark Exchange Logo"
                                 width={40}
                                 height={40}
-                                className="rounded-xl shadow-lg shadow-purple-500/25"
+                                className="rounded-xl shadow-lg shadow-amber-500/25"
                             />
                             <span className="text-xl font-bold gradient-text">
                                 Spark Exchange

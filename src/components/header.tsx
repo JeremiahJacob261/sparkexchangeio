@@ -20,7 +20,7 @@ export function Header() {
                             alt="Spark Exchange Logo"
                             width={40}
                             height={40}
-                            className="rounded-xl shadow-lg shadow-purple-500/25 group-hover:shadow-purple-500/40 transition-all duration-300"
+                            className="rounded-xl shadow-lg shadow-amber-500/25 group-hover:shadow-amber-500/40 transition-all duration-300"
                         />
                         <span className="text-xl font-bold gradient-text hidden sm:block">
                             Spark Exchange

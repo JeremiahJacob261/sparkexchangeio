@@ -20,13 +20,13 @@ export default function Home() {
       <section id="exchange" className="relative pt-24 md:pt-32 pb-20 overflow-hidden">
         {/* Background Effects */}
         <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-violet-600/20 rounded-full blur-[120px]"></div>
-          <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-purple-600/15 rounded-full blur-[100px]"></div>
+          <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-yellow-500/20 rounded-full blur-[120px]"></div>
+          <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-amber-500/15 rounded-full blur-[100px]"></div>
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-primary/5 rounded-full blur-[150px]"></div>
         </div>
 
         {/* Grid Pattern Overlay */}
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(139,92,246,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(139,92,246,0.03)_1px,transparent_1px)] bg-[size:50px_50px]"></div>
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(234,179,8,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(234,179,8,0.03)_1px,transparent_1px)] bg-[size:50px_50px]"></div>
 
         <div className="container mx-auto px-4 relative z-10">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center min-h-[70vh]">
