@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Menu, X, Zap } from "lucide-react";
+import { Menu, X } from "lucide-react";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 
 export function Header() {
@@ -14,9 +15,13 @@ export function Header() {
                 <div className="flex items-center justify-between h-16 md:h-20">
                     {/* Logo */}
                     <Link href="/" className="flex items-center gap-2 group">
-                        <div className="relative w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600 to-purple-600 flex items-center justify-center shadow-lg shadow-purple-500/25 group-hover:shadow-purple-500/40 transition-all duration-300">
-                            <Zap className="w-5 h-5 text-white" />
-                        </div>
+                        <Image
+                            src="/favicon.jpg"
+                            alt="Spark Exchange Logo"
+                            width={40}
+                            height={40}
+                            className="rounded-xl shadow-lg shadow-purple-500/25 group-hover:shadow-purple-500/40 transition-all duration-300"
+                        />
                         <span className="text-xl font-bold gradient-text hidden sm:block">
                             Spark Exchange
                         </span>

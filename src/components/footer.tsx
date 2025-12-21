@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Zap, Twitter, Github, MessageCircle } from "lucide-react";
+import Image from "next/image";
+import { Twitter, Github, MessageCircle } from "lucide-react";
 
 export function Footer() {
     return (
@@ -9,9 +10,13 @@ export function Footer() {
                     {/* Brand */}
                     <div className="md:col-span-1">
                         <Link href="/" className="flex items-center gap-2 group mb-4">
-                            <div className="relative w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600 to-purple-600 flex items-center justify-center shadow-lg shadow-purple-500/25">
-                                <Zap className="w-5 h-5 text-white" />
-                            </div>
+                            <Image
+                                src="/favicon.jpg"
+                                alt="Spark Exchange Logo"
+                                width={40}
+                                height={40}
+                                className="rounded-xl shadow-lg shadow-purple-500/25"
+                            />
                             <span className="text-xl font-bold gradient-text">
                                 Spark Exchange
                             </span>

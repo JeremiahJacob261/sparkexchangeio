@@ -11,6 +11,9 @@ export const metadata: Metadata = {
   title: "Spark Exchange - Decentralized Crypto Exchange",
   description: "Secure, fast, cheap, anonymous swaps. No account needed. Exchange between 900+ cryptocurrencies with the best rates.",
   keywords: ["crypto", "exchange", "decentralized", "swap", "bitcoin", "ethereum", "trading"],
+  icons: {
+    icon: "/favicon.jpg",
+  },
   openGraph: {
     title: "Spark Exchange - Decentralized Crypto Exchange",
     description: "Secure, fast, cheap, anonymous swaps. No account needed.",

@@ -6,7 +6,7 @@ import { Footer } from "@/components/footer";
 import { ExchangeWidget } from "@/components/exchange-widget";
 import { HowItWorksSection } from "@/components/how-it-works-section";
 import { FeaturesSection } from "@/components/features-section";
-import { TestimonialsSection } from "@/components/testimonials-section";
+// import { TestimonialsSection } from "@/components/testimonials-section";
 import { FAQSection } from "@/components/faq-section";
 import { ContactSection } from "@/components/contact-section";
 import { CTASection } from "@/components/cta-section";
@@ -104,7 +104,7 @@ export default function Home() {
       <FeaturesSection />
 
       {/* Testimonials Section */}
-      <TestimonialsSection />
+      {/* <TestimonialsSection /> */}
 
       {/* FAQ Section */}
       <FAQSection />
