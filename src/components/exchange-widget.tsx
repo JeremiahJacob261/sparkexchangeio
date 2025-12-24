@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { ArrowLeftRight, ChevronDown, Loader2, AlertCircle, Copy, CheckCircle, QrCode, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -79,6 +79,17 @@ export function ExchangeWidget() {
 
     // Debounce amount for API calls
     const debouncedFromAmount = useDebounce(fromAmount, 500);
+
+    // Optimize: Memoize filtered currencies and limit to 50 items to prevent lag
+    const filteredCurrencies = useMemo(() => {
+        const lowerQuery = searchQuery.toLowerCase();
+        return currencies
+            .filter(c =>
+                c.name.toLowerCase().includes(lowerQuery) ||
+                c.ticker.toLowerCase().includes(lowerQuery)
+            )
+            .slice(0, 50);
+    }, [currencies, searchQuery]);
 
     // Initialize Currencies
     useEffect(() => {
@@ -513,11 +524,7 @@ export function ExchangeWidget() {
                                                 />
                                             </div>
                                             <div className="p-2 space-y-1 overflow-y-auto">
-                                                {currencies
-                                                    .filter(c =>
-                                                        c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                                                        c.ticker.toLowerCase().includes(searchQuery.toLowerCase())
-                                                    )
+                                                {filteredCurrencies
                                                     .map(c => (
                                                         <button
                                                             key={c.ticker + c.network}
@@ -597,11 +604,7 @@ export function ExchangeWidget() {
                                                 />
                                             </div>
                                             <div className="p-2 space-y-1 overflow-y-auto">
-                                                {currencies
-                                                    .filter(c =>
-                                                        c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                                                        c.ticker.toLowerCase().includes(searchQuery.toLowerCase())
-                                                    )
+                                                {filteredCurrencies
                                                     .map(c => (
                                                         <button
                                                             key={c.ticker + c.network}

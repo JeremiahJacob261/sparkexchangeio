@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
 
         const currencies = await response.json();
 
-        // Filter currencies by network if specified
+        // Filter currencies by network if specified and map to essential fields
         let filteredCurrencies = currencies;
         if (network) {
             filteredCurrencies = currencies.filter(
@@ -56,11 +56,19 @@ export async function GET(request: NextRequest) {
             );
         }
 
+        // Optimize: Reduce payload size
+        const mappedCurrencies = filteredCurrencies.map((c: any) => ({
+            ticker: c.ticker,
+            name: c.name,
+            image: c.image,
+            network: c.network
+        }));
+
         return NextResponse.json({
             success: true,
             network: network,
-            currencies: filteredCurrencies,
-            total: filteredCurrencies.length,
+            currencies: mappedCurrencies,
+            total: mappedCurrencies.length,
         });
     } catch (error) {
         console.error('Error fetching currencies:', error);
