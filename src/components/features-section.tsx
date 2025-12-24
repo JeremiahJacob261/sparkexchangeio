@@ -72,10 +72,10 @@ export function FeaturesSection() {
                                 </div>
                                 <div className="text-center p-6 rounded-2xl bg-secondary/50">
                                     <div className="text-3xl md:text-4xl font-bold gradient-text mb-2">
-                                        5M+
+                                        ~2m
                                     </div>
                                     <p className="text-sm text-muted-foreground">
-                                        Transactions
+                                        Avg. Time
                                     </p>
                                 </div>
                                 <div className="text-center p-6 rounded-2xl bg-secondary/50">
@@ -88,10 +88,10 @@ export function FeaturesSection() {
                                 </div>
                                 <div className="text-center p-6 rounded-2xl bg-secondary/50">
                                     <div className="text-3xl md:text-4xl font-bold gradient-text mb-2">
-                                        0%
+                                        1%
                                     </div>
                                     <p className="text-sm text-muted-foreground">
-                                        Hidden Fees
+                                        Transaction Fees
                                     </p>
                                 </div>
                             </div>
