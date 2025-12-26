@@ -18,6 +18,8 @@ interface ExchangeData {
     payoutHash?: string;
     updatedAt: string;
     status: string; // waiting, confirming, exchanging, sending, finished, failed, refunded, expired
+    fromCurrency: string;
+    toCurrency: string;
 }
 
 export default function StatusPage({ params }: { params: Promise<{ id: string }> }) {
@@ -32,20 +34,24 @@ export default function StatusPage({ params }: { params: Promise<{ id: string }>
 
         const checkStatus = async () => {
             try {
-                const res = await fetch(`/api/changenow/transaction/${id}`);
+                const res = await fetch(`/api/stealthex/transaction/${id}`);
                 const data = await res.json();
 
                 if (data.success) {
+                    // Map StealthEX data from data.data
+                    const tx = data.data;
                     setStatusData({
                         id: id,
-                        payinAddress: data.payinAddress,
-                        payoutAddress: data.payoutAddress,
-                        fromAmount: data.fromAmount,
-                        toAmount: data.toAmount,
-                        status: data.status,
-                        payinHash: data.payinHash,
-                        payoutHash: data.payoutHash,
-                        updatedAt: data.updatedAt
+                        payinAddress: tx.deposit_address,
+                        payoutAddress: tx.recipient_address,
+                        fromAmount: tx.amount_from,
+                        toAmount: tx.amount_to,
+                        status: data.status, // or tx.status
+                        payinHash: tx.hash_in,
+                        payoutHash: tx.hash_out,
+                        updatedAt: tx.updated_at,
+                        fromCurrency: tx.currency_from,
+                        toCurrency: tx.currency_to
                     });
 
                     // Stop polling if final state
@@ -149,18 +155,18 @@ export default function StatusPage({ params }: { params: Promise<{ id: string }>
                                         return (
                                             <div key={step.id} className="flex flex-col items-center gap-2 bg-background px-2 rounded-lg z-10">
                                                 <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-500 ${status === 'completed' ? 'bg-green-500 border-green-500 text-black' :
-                                                        status === 'active' ? 'bg-primary border-primary text-white scale-110 shadow-lg shadow-primary/30' :
-                                                            status === 'error' ? 'bg-red-500 border-red-500 text-white' :
-                                                                'bg-secondary border-muted text-muted-foreground'
+                                                    status === 'active' ? 'bg-primary border-primary text-white scale-110 shadow-lg shadow-primary/30' :
+                                                        status === 'error' ? 'bg-red-500 border-red-500 text-white' :
+                                                            'bg-secondary border-muted text-muted-foreground'
                                                     }`}>
                                                     {status === 'completed' ? <CheckCircle className="w-6 h-6" /> :
                                                         status === 'error' ? <AlertCircle className="w-6 h-6" /> :
                                                             <span className="text-sm font-bold">{index + 1}</span>}
                                                 </div>
                                                 <span className={`text-xs font-bold uppercase ${status === 'active' ? 'text-primary' :
-                                                        status === 'completed' ? 'text-green-500' :
-                                                            status === 'error' ? 'text-red-500' :
-                                                                'text-muted-foreground'
+                                                    status === 'completed' ? 'text-green-500' :
+                                                        status === 'error' ? 'text-red-500' :
+                                                            'text-muted-foreground'
                                                     }`}>{step.label}</span>
                                             </div>
                                         );
@@ -176,10 +182,10 @@ export default function StatusPage({ params }: { params: Promise<{ id: string }>
                                         <div className="flex flex-col justify-center space-y-6">
                                             <div>
                                                 <label className="text-sm text-muted-foreground mb-1 block">Send Exact Amount</label>
-                                                <div className="text-3xl font-bold">{statusData.fromAmount} <span className="text-primary text-xl">Coin</span></div>
+                                                <div className="text-3xl font-bold">{statusData.fromAmount} <span className="text-primary text-xl uppercase">{statusData.fromCurrency}</span></div>
                                             </div>
                                             <div>
-                                                <label className="text-sm text-muted-foreground mb-1 block">To Address</label>
+                                                <label className="text-sm text-muted-foreground mb-1 block">To Deposit Address</label>
                                                 <div className="flex items-center gap-2 bg-secondary/50 p-3 rounded-lg border border-border">
                                                     <code className="text-xs flex-1 break-all font-mono">{statusData.payinAddress}</code>
                                                     <Button
@@ -200,7 +206,7 @@ export default function StatusPage({ params }: { params: Promise<{ id: string }>
                                     <div className="text-center bg-green-500/10 border border-green-500/20 rounded-xl p-8 mb-8">
                                         <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
                                         <h2 className="text-2xl font-bold text-green-500 mb-2">Exchange Successful!</h2>
-                                        <p className="text-muted-foreground mb-4">You received <strong>{statusData.toAmount}</strong></p>
+                                        <p className="text-muted-foreground mb-4">You received <strong>{statusData.toAmount} {statusData.toCurrency.toUpperCase()}</strong></p>
 
                                         {statusData.payoutHash && (
                                             <div className="text-xs text-muted-foreground break-all">

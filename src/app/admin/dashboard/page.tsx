@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, RefreshCcw, LogOut, TrendingUp, Activity, CheckCircle, XCircle } from "lucide-react";
+import { Loader2, RefreshCcw, LogOut, TrendingUp, Activity, CheckCircle, XCircle, Settings, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 interface Transaction {
     id: string;
-    changenow_id: string;
+    changenow_id?: string;
+    stealthex_id?: string;
     payin_address: string;
     payout_address: string;
     from_currency: string;
@@ -27,15 +29,20 @@ interface Analytics {
 export default function AdminDashboard() {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [analytics, setAnalytics] = useState<Analytics | null>(null);
+    const [commission, setCommission] = useState<string>("0");
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState<string | null>(null);
+    const [isSaving, setIsSaving] = useState(false);
     const router = useRouter();
 
-    // Force sync a transaction from ChangeNOW
-    const syncTransaction = async (id: string, changenowId: string) => {
+    // Force sync a transaction from ChangeNOW or StealthEX
+    const syncTransaction = async (id: string, externalId: string) => {
         setIsRefreshing(id);
         try {
-            await fetch(`/api/changenow/transaction/${changenowId}`);
+            // Try StealthEX first as it is the new provider
+            await fetch(`/api/stealthex/transaction/${externalId}`);
+            // If we needed to support legacy ChangeNOW sync, we'd need a conditional logic here,
+            // but for now we focus on the new integration. 
             await fetchData();
         } catch (error) {
             console.error("Sync failed", error);
@@ -47,8 +54,7 @@ export default function AdminDashboard() {
     const fetchData = async () => {
         setIsLoading(true);
         try {
-            // In dev environment, auth check might fail on reload if cookie isn't persisting properly in some setups,
-            // but with standard cookies steps it should be fine.
+            // Check auth
             const res = await fetch("/api/admin/transactions");
             if (res.status === 401) {
                 router.push("/admin");
@@ -59,10 +65,43 @@ export default function AdminDashboard() {
                 setTransactions(data.transactions);
                 setAnalytics(data.analytics);
             }
+
+            // Fetch Config
+            const configRes = await fetch("/api/admin/config");
+            const configData = await configRes.json();
+            if (configData.commission_percentage !== undefined) {
+                setCommission(configData.commission_percentage.toString());
+            }
+
         } catch (error) {
             console.error("Failed to load dashboard data", error);
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const handleUpdateCommission = async () => {
+        setIsSaving(true);
+        try {
+            const val = parseFloat(commission);
+            if (isNaN(val) || val < 0) {
+                alert("Invalid commission value");
+                return;
+            }
+            const res = await fetch("/api/admin/config", {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ commission_percentage: val })
+            });
+            if (res.ok) {
+                alert("Commission updated successfully");
+            } else {
+                alert("Failed to update commission");
+            }
+        } catch (error) {
+            console.error("Error saving commission", error);
+        } finally {
+            setIsSaving(false);
         }
     };
 
@@ -71,8 +110,6 @@ export default function AdminDashboard() {
     }, []);
 
     const handleLogout = () => {
-        // Clear cookie client side roughly or just redirect. 
-        // Real logout should call an API to clear cookie.
         document.cookie = "admin_session=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT";
         router.push("/admin");
     };
@@ -104,26 +141,53 @@ export default function AdminDashboard() {
                 </div>
             </header>
 
-            {/* Analytics Cards */}
-            {analytics && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                    <div className="bg-card border border-white/10 p-6 rounded-xl relative overflow-hidden">
-                        <div className="absolute top-0 right-0 p-4 opacity-10">
-                            <Activity className="w-24 h-24" />
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                {/* Analytics Cards */}
+                {analytics && (
+                    <>
+                        <div className="bg-card border border-white/10 p-6 rounded-xl relative overflow-hidden">
+                            <div className="absolute top-0 right-0 p-4 opacity-10">
+                                <Activity className="w-24 h-24" />
+                            </div>
+                            <h3 className="text-sm font-medium text-muted-foreground mb-2">Total Transactions</h3>
+                            <p className="text-3xl font-bold">{analytics.totalTransactions}</p>
                         </div>
-                        <h3 className="text-sm font-medium text-muted-foreground mb-2">Total Transactions</h3>
-                        <p className="text-3xl font-bold">{analytics.totalTransactions}</p>
-                    </div>
 
-                    <div className="bg-card border border-white/10 p-6 rounded-xl relative overflow-hidden">
-                        <div className="absolute top-0 right-0 p-4 opacity-10">
-                            <CheckCircle className="w-24 h-24" />
+                        <div className="bg-card border border-white/10 p-6 rounded-xl relative overflow-hidden">
+                            <div className="absolute top-0 right-0 p-4 opacity-10">
+                                <CheckCircle className="w-24 h-24" />
+                            </div>
+                            <h3 className="text-sm font-medium text-muted-foreground mb-2">Success Rate</h3>
+                            <p className="text-3xl font-bold text-green-500">{analytics.successRate}%</p>
                         </div>
-                        <h3 className="text-sm font-medium text-muted-foreground mb-2">Success Rate</h3>
-                        <p className="text-3xl font-bold text-green-500">{analytics.successRate}%</p>
+                    </>
+                )}
+
+                {/* Commission Settings */}
+                <div className="bg-card border border-white/10 p-6 rounded-xl relative overflow-hidden md:col-span-2">
+                    <div className="absolute top-0 right-0 p-4 opacity-10">
+                        <Settings className="w-24 h-24" />
+                    </div>
+                    <h3 className="text-sm font-medium text-muted-foreground mb-4">Platform Settings</h3>
+                    <div className="flex items-end gap-4">
+                        <div className="flex-1">
+                            <label className="text-xs text-muted-foreground mb-1 block">Your Commission (%)</label>
+                            <Input
+                                type="number"
+                                value={commission}
+                                onChange={(e) => setCommission(e.target.value)}
+                                min="0"
+                                step="0.1"
+                                className="bg-black/20"
+                            />
+                        </div>
+                        <Button onClick={handleUpdateCommission} disabled={isSaving}>
+                            {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                            Save
+                        </Button>
                     </div>
                 </div>
-            )}
+            </div>
 
             {/* Transactions Table */}
             <div className="bg-card border border-white/10 rounded-xl overflow-hidden shadow-xl">
@@ -149,7 +213,7 @@ export default function AdminDashboard() {
                                     <td className="px-6 py-4 text-muted-foreground whitespace-nowrap">
                                         {new Date(tx.created_at).toLocaleString()}
                                     </td>
-                                    <td className="px-6 py-4 font-mono text-xs">{tx.changenow_id}</td>
+                                    <td className="px-6 py-4 font-mono text-xs">{tx.stealthex_id || tx.changenow_id}</td>
                                     <td className="px-6 py-4">
                                         <div className="flex items-center gap-2 font-bold uppercase">
                                             <span>{tx.from_currency}</span>
@@ -163,11 +227,10 @@ export default function AdminDashboard() {
                                     </td>
                                     <td className="px-6 py-4">
                                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize
-                                            ${tx.status === 'COMPLETED' || tx.status === 'finished' ? 'bg-green-500/10 text-green-500' :
-                                                tx.status === 'FAILED' || tx.status === 'failed' ? 'bg-red-500/10 text-red-500' :
-                                                    tx.status === 'PROCESSING' || tx.status === 'exchanging' || tx.status === 'confirming' ? 'bg-blue-500/10 text-blue-500' :
-                                                        'bg-yellow-500/10 text-yellow-500'}`}>
-                                            {tx.status?.replace('_', ' ').toLowerCase()}
+                                            ${tx.status === 'finished' || tx.status === 'COMPLETED' ? 'bg-green-500/10 text-green-500' :
+                                                tx.status === 'failed' || tx.status === 'expired' || tx.status === 'refunded' ? 'bg-red-500/10 text-red-500' :
+                                                    'bg-blue-500/10 text-blue-500'}`}>
+                                            {tx.status}
                                         </span>
                                     </td>
                                     <td className="px-6 py-4 max-w-[200px] truncate font-mono text-xs text-muted-foreground" title={tx.payout_address}>
@@ -178,7 +241,7 @@ export default function AdminDashboard() {
                                             variant="ghost"
                                             size="icon"
                                             className="h-8 w-8 text-muted-foreground hover:text-white"
-                                            onClick={() => syncTransaction(tx.id, tx.changenow_id)}
+                                            onClick={() => syncTransaction(tx.id, (tx.stealthex_id || tx.changenow_id) as string)}
                                             disabled={isRefreshing === tx.id}
                                             title="Sync Status"
                                         >

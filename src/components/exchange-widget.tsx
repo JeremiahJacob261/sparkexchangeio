@@ -22,7 +22,7 @@ interface ExchangeResponse {
     id: string;
     payinAddress: string;
     payoutAddress: string;
-    fromAmount: string;
+    fromAmount: string; // StealthEX might return number or string, we handle widely
     toAmount: string;
     fromCurrency: string;
     toCurrency: string;
@@ -95,7 +95,7 @@ export function ExchangeWidget() {
     useEffect(() => {
         const fetchCurrencies = async () => {
             try {
-                const res = await fetch('/api/changenow/currencies?active=true');
+                const res = await fetch('/api/stealthex/currencies');
                 const data = await res.json();
 
                 if (data.success && data.currencies.length > 0) {
@@ -103,8 +103,8 @@ export function ExchangeWidget() {
 
                     // Default selections: BTC -> ETH
                     // We look for 'btc' and 'eth' tickers.
-                    const btc = data.currencies.find((c: Currency) => c.ticker === 'btc' && c.network === 'btc');
-                    const eth = data.currencies.find((c: Currency) => c.ticker === 'eth' && c.network === 'eth');
+                    const btc = data.currencies.find((c: Currency) => c.ticker === 'btc');
+                    const eth = data.currencies.find((c: Currency) => c.ticker === 'eth');
 
                     const defaultFrom = btc || data.currencies[0];
                     const defaultTo = eth || data.currencies[1] || data.currencies[0];
@@ -138,15 +138,12 @@ export function ExchangeWidget() {
                 params.append('fromCurrency', fromCurrency.ticker);
                 params.append('toCurrency', toCurrency.ticker);
                 params.append('fromAmount', debouncedFromAmount);
-                params.append('flow', 'standard');
-                if (fromCurrency.network) params.append('fromNetwork', fromCurrency.network);
-                if (toCurrency.network) params.append('toNetwork', toCurrency.network);
 
-                const res = await fetch(`/api/changenow/estimate?${params.toString()}`);
+                const res = await fetch(`/api/stealthex/estimate?${params.toString()}`);
                 const data = await res.json();
 
                 if (data.success) {
-                    setToAmount(data.estimate.toAmount.toFixed(6));
+                    setToAmount(parseFloat(data.estimate.toAmount).toFixed(6));
                     if (data.estimate.toAmount === 0) {
                         setEstimateError("Amount too low");
                     }
@@ -196,7 +193,7 @@ export function ExchangeWidget() {
 
         const checkStatus = async () => {
             try {
-                const res = await fetch(`/api/changenow/transaction/${txResult.id}`);
+                const res = await fetch(`/api/stealthex/transaction/${txResult.id}`);
                 const data = await res.json();
 
                 if (data.success) {
@@ -287,14 +284,10 @@ export function ExchangeWidget() {
                 address: destinationAddress,
                 fromNetwork: fromCurrency.network,
                 toNetwork: toCurrency.network,
-                flow: 'standard'
+                refundAddress: refundAddress || undefined,
             };
 
-            if (refundAddress) {
-                payload.refundAddress = refundAddress;
-            }
-
-            const res = await fetch('/api/changenow/exchange', {
+            const res = await fetch('/api/stealthex/exchange', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
@@ -303,7 +296,9 @@ export function ExchangeWidget() {
             const data = await res.json();
 
             if (data.success) {
+                // Ensure data.exchange has all needed fields. stealthEX returns 'deposit_address' mapped to 'payinAddress' in our route
                 setTxResult(data.exchange);
+
                 // Save to local storage as fallback
                 const txHistory = JSON.parse(localStorage.getItem("txHistory") || "[]");
                 txHistory.push({
