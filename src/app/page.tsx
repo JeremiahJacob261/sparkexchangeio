@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { ArrowRight, Play, Shield, Zap, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,7 +13,14 @@ import { FAQSection } from "@/components/faq-section";
 import { ContactSection } from "@/components/contact-section";
 import { CTASection } from "@/components/cta-section";
 
+import { useEffect } from "react";
+
 export default function Home() {
+  useEffect(() => {
+    // Fire and forget visit tracking
+    fetch('/api/track-visit', { method: 'POST' });
+  }, []);
+
   return (
     <div className="min-h-screen bg-background">
       <Header />

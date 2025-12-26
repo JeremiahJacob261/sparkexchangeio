@@ -24,6 +24,10 @@ interface Analytics {
     totalTransactions: number;
     totalVolume: number; // Raw sum
     successRate: string;
+    totalVisits: number;
+    totalUniqueVisits: number;
+    totalVolumeUSD: number;
+    totalCommissionUSD: number;
 }
 
 export default function AdminDashboard() {
@@ -155,10 +159,39 @@ export default function AdminDashboard() {
 
                         <div className="bg-card border border-white/10 p-6 rounded-xl relative overflow-hidden">
                             <div className="absolute top-0 right-0 p-4 opacity-10">
+                                <TrendingUp className="w-24 h-24" />
+                            </div>
+                            <h3 className="text-sm font-medium text-muted-foreground mb-2">Total Visits</h3>
+                            <div className="flex items-end gap-2">
+                                <span className="text-3xl font-bold">{analytics.totalVisits}</span>
+                                <span className="text-sm text-muted-foreground mb-1">({analytics.totalUniqueVisits} unique)</span>
+                            </div>
+                        </div>
+
+                        <div className="bg-card border border-white/10 p-6 rounded-xl relative overflow-hidden">
+                            <div className="absolute top-0 right-0 p-4 opacity-10">
                                 <CheckCircle className="w-24 h-24" />
                             </div>
                             <h3 className="text-sm font-medium text-muted-foreground mb-2">Success Rate</h3>
                             <p className="text-3xl font-bold text-green-500">{analytics.successRate}%</p>
+                        </div>
+
+                        <div className="bg-card border border-white/10 p-6 rounded-xl relative overflow-hidden">
+                            <div className="absolute top-0 right-0 p-4 opacity-10">
+                                <span className="text-6xl font-bold">$</span>
+                            </div>
+                            <h3 className="text-sm font-medium text-muted-foreground mb-2">Total Volume</h3>
+                            <p className="text-3xl font-bold">${analytics.totalVolumeUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                            <p className="text-xs text-muted-foreground mt-1">Estimated USD Value</p>
+                        </div>
+
+                        <div className="bg-card border border-white/10 p-6 rounded-xl relative overflow-hidden border-primary/20 bg-primary/5">
+                            <div className="absolute top-0 right-0 p-4 opacity-10">
+                                <span className="text-6xl font-bold text-primary">$</span>
+                            </div>
+                            <h3 className="text-sm font-medium text-primary mb-2">Total Earnings</h3>
+                            <p className="text-3xl font-bold text-primary">${analytics.totalCommissionUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                            <p className="text-xs text-primary/70 mt-1">Commission Earned</p>
                         </div>
                     </>
                 )}
