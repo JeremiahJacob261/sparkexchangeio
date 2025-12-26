@@ -3,10 +3,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { StealthExClient } from '@/lib/stealthex';
 import { supabase } from '@/lib/supabase';
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
         const apiKey = process.env.STEALTHEX_API_KEY;
-        const { id } = params;
+        const { id } = await params;
 
         if (!apiKey) return NextResponse.json({ error: 'Configuration error' }, { status: 500 });
 
