@@ -40,7 +40,7 @@ export function ContactSection() {
                                 <div>
                                     <p className="font-medium">Email Support</p>
                                     <p className="text-sm text-muted-foreground">
-                                        support@sparkexchange.io
+                                        sparkexchangedex@gmail.com
                                     </p>
                                 </div>
                             </div>
