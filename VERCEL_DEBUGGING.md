@@ -3,16 +3,22 @@
 ## Issue
 Total earnings and commission display shows $0.00 in production but works locally.
 
+**Root Cause:** Binance API returns error 451 (geo-blocked) in Vercel's serverless environment.
+
+**Solution:** Switched to CoinGecko API which has no geo-restrictions and works globally.
+
 ## Fixes Applied
 
-### 1. Added Binance API Timeout
-- Added 5-second timeout to prevent serverless hanging
-- Added fallback prices if Binance API fails
-- Better error handling
+### 1. Switched to CoinGecko API
+- **Problem:** Binance API blocked with error 451 in production (geo-restrictions)
+- **Solution:** Using CoinGecko free API which has no regional blocks
+- Added 8-second timeout to prevent serverless hanging
+- Supports 35+ major cryptocurrencies
+- Added fallback prices if CoinGecko fails
 
 ### 2. Added Detailed Logging
 Console logs added to track:
-- Price fetching from Binance
+- Price fetching from CoinGecko
 - Commission rate from database
 - Each completed transaction's USD value and commission
 - Final totals
@@ -40,8 +46,9 @@ git push
 
 ### Step 3: Look for These Log Messages
 ```
-[Admin API] Fetching prices from Binance...
-[Admin API] Successfully fetched XXX price pairs
+[Admin API] Fetching prices from CoinGecko...
+[Admin API] Successfully fetched prices from CoinGecko
+[Admin API] Price map created with XX currencies
 [Admin API] Commission rate: X.X
 [Admin API] Total transactions: XX
 [Admin API] TX xxx: X.XX BTC @ $XXXXX = $XXX.XX, commission: $X.XX
@@ -53,11 +60,13 @@ git push
 
 ### Step 4: Common Issues & Solutions
 
-#### Issue: "Binance API returned error" or timeout
+#### Issue: "CoinGecko API returned error" or timeout
 **Solution**: The fallback prices will be used automatically. Check logs for:
 ```
 [Admin API] Using fallback prices
 ```
+
+CoinGecko has rate limits on the free tier (50 calls/minute), but this should be more than enough for admin dashboard usage.
 
 #### Issue: Commission rate shows DEFAULT (0.4)
 **Solution**: Commission rate not set in database. Set it via admin dashboard settings or check if `app_settings` table has a row with `key='commission_rate'`.

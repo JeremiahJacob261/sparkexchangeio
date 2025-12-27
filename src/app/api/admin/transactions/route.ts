@@ -4,45 +4,100 @@ import { supabase } from '@/lib/supabase';
 import { cookies } from 'next/headers';
 import { getCommissionRate } from '@/lib/settings';
 
-// Helper to fetch approximate prices
+// Helper to fetch approximate prices from CoinGecko (no geo-restrictions)
 async function getPrices() {
     try {
-        console.log('[Admin API] Fetching prices from Binance...');
+        console.log('[Admin API] Fetching prices from CoinGecko...');
+
+        // CoinGecko simple price endpoint - gets current prices vs USD
+        // List of commonly traded cryptos
+        const cryptoIds = [
+            'bitcoin', 'ethereum', 'binancecoin', 'solana', 'ripple',
+            'cardano', 'dogecoin', 'tron', 'litecoin', 'polygon',
+            'polkadot', 'avalanche-2', 'chainlink', 'uniswap', 'bitcoin-cash',
+            'stellar', 'cosmos', 'monero', 'ethereum-classic', 'eos',
+            'tezos', 'filecoin', 'algorand', 'vechain', 'decentraland',
+            'the-sandbox', 'axie-infinity', 'shiba-inu', 'dai', 'usd-coin',
+            'tether', 'binance-usd', 'true-usd', 'pax-dollar', 'wrapped-bitcoin'
+        ].join(',');
 
         // Add timeout to prevent hanging in serverless
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+        const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
 
-        const res = await fetch('https://api.binance.com/api/v3/ticker/price', {
-            signal: controller.signal,
-            headers: {
-                'Accept': 'application/json',
+        const res = await fetch(
+            `https://api.coingecko.com/api/v3/simple/price?ids=${cryptoIds}&vs_currencies=usd`,
+            {
+                signal: controller.signal,
+                headers: {
+                    'Accept': 'application/json',
+                }
             }
-        });
+        );
 
         clearTimeout(timeoutId);
 
         if (!res.ok) {
-            console.error('[Admin API] Binance API returned error:', res.status, res.statusText);
+            console.error('[Admin API] CoinGecko API returned error:', res.status, res.statusText);
             return getDefaultPrices();
         }
 
         const data = await res.json();
-        console.log('[Admin API] Successfully fetched', data.length, 'price pairs');
+        console.log('[Admin API] Successfully fetched prices from CoinGecko');
 
-        // Convert to easy map: BTC -> Price
+        // Map CoinGecko IDs to common ticker symbols
+        const idToSymbol: Record<string, string> = {
+            'bitcoin': 'BTC',
+            'ethereum': 'ETH',
+            'binancecoin': 'BNB',
+            'solana': 'SOL',
+            'ripple': 'XRP',
+            'cardano': 'ADA',
+            'dogecoin': 'DOGE',
+            'tron': 'TRX',
+            'litecoin': 'LTC',
+            'polygon': 'MATIC',
+            'polkadot': 'DOT',
+            'avalanche-2': 'AVAX',
+            'chainlink': 'LINK',
+            'uniswap': 'UNI',
+            'bitcoin-cash': 'BCH',
+            'stellar': 'XLM',
+            'cosmos': 'ATOM',
+            'monero': 'XMR',
+            'ethereum-classic': 'ETC',
+            'eos': 'EOS',
+            'tezos': 'XTZ',
+            'filecoin': 'FIL',
+            'algorand': 'ALGO',
+            'vechain': 'VET',
+            'decentraland': 'MANA',
+            'the-sandbox': 'SAND',
+            'axie-infinity': 'AXS',
+            'shiba-inu': 'SHIB',
+            'dai': 'DAI',
+            'usd-coin': 'USDC',
+            'tether': 'USDT',
+            'binance-usd': 'BUSD',
+            'true-usd': 'TUSD',
+            'pax-dollar': 'USDP',
+            'wrapped-bitcoin': 'WBTC'
+        };
+
+        // Convert to symbol -> price map
         const priceMap: Record<string, number> = {};
-        data.forEach((item: any) => {
-            if (item.symbol.endsWith('USDT')) {
-                const symbol = item.symbol.replace('USDT', '');
-                priceMap[symbol] = parseFloat(item.price);
+        Object.entries(data).forEach(([coinId, priceData]: [string, any]) => {
+            const symbol = idToSymbol[coinId];
+            if (symbol && priceData.usd) {
+                priceMap[symbol] = priceData.usd;
             }
         });
 
-        // Add manual stablecoins if missed
+        // Ensure stablecoins are exactly $1
         priceMap['USDT'] = 1;
         priceMap['USDC'] = 1;
         priceMap['DAI'] = 1;
+        priceMap['BUSD'] = 1;
 
         console.log('[Admin API] Price map created with', Object.keys(priceMap).length, 'currencies');
         return priceMap;
