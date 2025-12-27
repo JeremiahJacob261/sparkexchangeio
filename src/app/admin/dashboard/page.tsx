@@ -66,6 +66,7 @@ export default function AdminDashboard() {
             if (data.success) {
                 setTransactions(data.transactions);
                 setAnalytics(data.analytics);
+                console.log(data.analytics);
             }
 
             // Fetch Config
