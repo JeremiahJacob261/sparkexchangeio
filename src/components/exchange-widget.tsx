@@ -150,7 +150,9 @@ export function ExchangeWidget() {
                         setEstimateError("Amount too low");
                     }
                 } else {
-                    setEstimateError(data.error || "Estimation failed");
+                    // Use specific error message from details if available
+                    const errorMessage = data.details?.message || data.error || "Estimation failed";
+                    setEstimateError(errorMessage);
                     setToAmount("");
                 }
             } catch (error) {
@@ -313,7 +315,9 @@ export function ExchangeWidget() {
                 });
                 localStorage.setItem("txHistory", JSON.stringify(txHistory));
             } else {
-                setEstimateError(data.error || "Failed to create transaction");
+                // Use specific error message from details if available
+                const errorMessage = data.details?.message || data.error || "Failed to create transaction";
+                setEstimateError(errorMessage);
             }
 
         } catch (error) {

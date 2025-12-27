@@ -1,5 +1,8 @@
+"use client";
+
 import { Shield, Zap, Lock, Clock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { useEffect, useState } from "react";
 
 const features = [
     {
@@ -25,6 +28,24 @@ const features = [
 ];
 
 export function FeaturesSection() {
+    const [commissionRate, setCommissionRate] = useState<number | null>(null);
+
+    useEffect(() => {
+        const fetchCommissionRate = async () => {
+            try {
+                const response = await fetch('/api/settings/commission');
+                const data = await response.json();
+                setCommissionRate(data.commissionRate);
+            } catch (error) {
+                console.error('Error fetching commission rate:', error);
+                // Fallback to default
+                setCommissionRate(0.4);
+            }
+        };
+
+        fetchCommissionRate();
+    }, []);
+
     return (
         <section id="about" className="py-20 md:py-32">
             <div className="container mx-auto px-4">
@@ -88,7 +109,7 @@ export function FeaturesSection() {
                                 </div>
                                 <div className="text-center p-6 rounded-2xl bg-secondary/50">
                                     <div className="text-3xl md:text-4xl font-bold gradient-text mb-2">
-                                        1%
+                                        {commissionRate !== null ? `${commissionRate}%` : '0.4%'}
                                     </div>
                                     <p className="text-sm text-muted-foreground">
                                         Transaction Fees

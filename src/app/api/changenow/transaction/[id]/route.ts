@@ -65,8 +65,9 @@ export async function GET(
             status: data.status, // waiting, confirming, exchanging, sending, finished, failed, ...
             payinAddress: data.payinAddress,
             payoutAddress: data.payoutAddress,
-            fromAmount: data.fromAmount,
-            toAmount: data.toAmount,
+            fromAmount: data.amountFrom,
+            toAmount: data.expectedAmountTo,
+            toCurrency: data.toCurrency,
             payinHash: data.payinHash,
             payoutHash: data.payoutHash,
             updatedAt: new Date().toISOString()
