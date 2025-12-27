@@ -180,7 +180,7 @@ export default function AdminDashboard() {
                                 <span className="text-6xl font-bold">$</span>
                             </div>
                             <h3 className="text-sm font-medium text-muted-foreground mb-2">Total Volume</h3>
-                            <p className="text-3xl font-bold">${analytics.totalVolumeUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                            <p className="text-3xl font-bold">${(analytics.totalVolumeUSD || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                             <p className="text-xs text-muted-foreground mt-1">Estimated USD Value</p>
                         </div>
 
@@ -189,7 +189,7 @@ export default function AdminDashboard() {
                                 <span className="text-6xl font-bold text-primary">$</span>
                             </div>
                             <h3 className="text-sm font-medium text-primary mb-2">Total Earnings</h3>
-                            <p className="text-3xl font-bold text-primary">${analytics.totalCommissionUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                            <p className="text-3xl font-bold text-primary">${(analytics.totalCommissionUSD || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                             <p className="text-xs text-primary/70 mt-1">Commission Earned</p>
                         </div>
                     </>

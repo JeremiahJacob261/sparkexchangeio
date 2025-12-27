@@ -7,9 +7,29 @@ import { getCommissionRate } from '@/lib/settings';
 // Helper to fetch approximate prices
 async function getPrices() {
     try {
-        const res = await fetch('https://api.binance.com/api/v3/ticker/price');
-        if (!res.ok) return {};
+        console.log('[Admin API] Fetching prices from Binance...');
+
+        // Add timeout to prevent hanging in serverless
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+
+        const res = await fetch('https://api.binance.com/api/v3/ticker/price', {
+            signal: controller.signal,
+            headers: {
+                'Accept': 'application/json',
+            }
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!res.ok) {
+            console.error('[Admin API] Binance API returned error:', res.status, res.statusText);
+            return getDefaultPrices();
+        }
+
         const data = await res.json();
+        console.log('[Admin API] Successfully fetched', data.length, 'price pairs');
+
         // Convert to easy map: BTC -> Price
         const priceMap: Record<string, number> = {};
         data.forEach((item: any) => {
@@ -18,14 +38,39 @@ async function getPrices() {
                 priceMap[symbol] = parseFloat(item.price);
             }
         });
+
         // Add manual stablecoins if missed
         priceMap['USDT'] = 1;
         priceMap['USDC'] = 1;
         priceMap['DAI'] = 1;
+
+        console.log('[Admin API] Price map created with', Object.keys(priceMap).length, 'currencies');
         return priceMap;
-    } catch {
-        return {};
+    } catch (error) {
+        console.error('[Admin API] Error fetching prices:', error);
+        return getDefaultPrices();
     }
+}
+
+// Fallback with common crypto prices (approximate)
+function getDefaultPrices(): Record<string, number> {
+    console.log('[Admin API] Using fallback prices');
+    return {
+        'BTC': 95000,
+        'ETH': 3500,
+        'BNB': 600,
+        'SOL': 180,
+        'XRP': 2.5,
+        'ADA': 0.9,
+        'DOGE': 0.35,
+        'TRX': 0.25,
+        'LTC': 100,
+        'MATIC': 1.1,
+        'USDT': 1,
+        'USDC': 1,
+        'DAI': 1,
+        'BUSD': 1,
+    };
 }
 
 export async function GET(request: NextRequest) {
@@ -59,8 +104,12 @@ export async function GET(request: NextRequest) {
             getCommissionRate()
         ]);
 
+        console.log('[Admin API] Commission rate:', commissionRate);
+        console.log('[Admin API] Total transactions:', transactions.length);
+
         let totalVolumeUSD = 0;
         let totalCommissionUSD = 0;
+        let completedCount = 0;
 
         // Calculate analytics
         const processedTransactions = transactions.map(tx => {
@@ -80,8 +129,11 @@ export async function GET(request: NextRequest) {
             const estimatedCommission = usdValue * (commissionRate / 100);
 
             if (tx.status === 'finished' || tx.status === 'COMPLETED') {
+                completedCount++;
                 totalVolumeUSD += usdValue;
                 totalCommissionUSD += estimatedCommission;
+
+                console.log(`[Admin API] TX ${tx.id}: ${tx.from_amount} ${symbol} @ $${price} = $${usdValue.toFixed(2)}, commission: $${estimatedCommission.toFixed(2)}`);
             }
 
             return {
@@ -89,6 +141,10 @@ export async function GET(request: NextRequest) {
                 usdValue: usdValue > 0 ? usdValue : null
             };
         });
+
+        console.log('[Admin API] Completed transactions:', completedCount);
+        console.log('[Admin API] Total Volume USD:', totalVolumeUSD.toFixed(2));
+        console.log('[Admin API] Total Commission USD:', totalCommissionUSD.toFixed(2));
 
         const totalTransactions = transactions.length;
         const totalVolume = transactions.reduce((sum, tx) => sum + (Number(tx.from_amount) || 0), 0); // Raw mixed sum (legacy)
