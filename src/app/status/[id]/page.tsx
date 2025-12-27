@@ -34,24 +34,22 @@ export default function StatusPage({ params }: { params: Promise<{ id: string }>
 
         const checkStatus = async () => {
             try {
-                const res = await fetch(`/api/stealthex/transaction/${id}`);
+                const res = await fetch(`/api/changenow/transaction/${id}`);
                 const data = await res.json();
 
-                if (data.success) {
-                    // Map StealthEX data from data.data
-                    const tx = data.data;
+                if (data.success && data.status) {
                     setStatusData({
                         id: id,
-                        payinAddress: tx.deposit_address,
-                        payoutAddress: tx.recipient_address,
-                        fromAmount: tx.amount_from,
-                        toAmount: tx.amount_to,
-                        status: data.status, // or tx.status
-                        payinHash: tx.hash_in,
-                        payoutHash: tx.hash_out,
-                        updatedAt: tx.updated_at,
-                        fromCurrency: tx.currency_from,
-                        toCurrency: tx.currency_to
+                        payinAddress: data.payinAddress,
+                        payoutAddress: data.payoutAddress,
+                        fromAmount: parseFloat(data.fromAmount) || 0,
+                        toAmount: parseFloat(data.toAmount) || 0,
+                        status: data.status,
+                        payinHash: data.payinHash,
+                        payoutHash: data.payoutHash,
+                        updatedAt: data.updatedAt,
+                        fromCurrency: data.fromCurrency || 'btc',
+                        toCurrency: data.toCurrency || 'eth'
                     });
 
                     // Stop polling if final state

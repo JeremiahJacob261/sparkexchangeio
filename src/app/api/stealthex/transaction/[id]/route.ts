@@ -13,10 +13,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         const client = new StealthExClient(apiKey);
         const tx = await client.getExchange(id);
 
-        // Update DB
-        // Map StealthEX status to our statuses
-        // StealthEX statuses: waiting, confirming, exchanging, sending, finished, failed, refunding, refunded
-
+        // Update DB with latest status
         await supabase
             .from('transactions')
             .update({
@@ -27,22 +24,29 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
         return NextResponse.json({
             success: true,
+            status: tx.status,
             transaction: {
                 id: tx.id,
                 status: tx.status,
-                fromCurrency: tx.currency_from,
-                toCurrency: tx.currency_to,
-                fromAmount: tx.amount_from,
-                toAmount: tx.amount_to, // This is actual amount? or estimated?
-                payinAddress: tx.address_from,
-                payoutAddress: tx.address_to,
-                createdAt: tx.timestamp || new Date().toISOString(), // Check if timestamp exists
-                payinExtraId: tx.extra_id_from,
-                txHash: tx.tx_to // Outgoing hash
+                fromCurrency: tx.deposit.symbol,
+                toCurrency: tx.withdrawal.symbol,
+                fromAmount: tx.deposit.expected_amount,
+                toAmount: tx.withdrawal.expected_amount,
+                actualFromAmount: tx.deposit.amount,
+                actualToAmount: tx.withdrawal.amount,
+                payinAddress: tx.deposit.address,
+                payoutAddress: tx.withdrawal.address,
+                payinExtraId: tx.deposit.extra_id,
+                payoutExtraId: tx.withdrawal.extra_id,
+                payinHash: tx.deposit.tx_hash,
+                payoutHash: tx.withdrawal.tx_hash,
+                createdAt: tx.created_at,
+                expiresAt: tx.expires_at
             }
         });
 
     } catch (error) {
-        return NextResponse.json({ error: 'Failed to fetch transaction' }, { status: 500 });
+        console.error('Transaction fetch error:', error);
+        return NextResponse.json({ error: 'Failed to fetch transaction', details: (error as Error).message }, { status: 500 });
     }
 }

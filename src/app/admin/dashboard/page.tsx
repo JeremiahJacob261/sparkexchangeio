@@ -43,10 +43,8 @@ export default function AdminDashboard() {
     const syncTransaction = async (id: string, externalId: string) => {
         setIsRefreshing(id);
         try {
-            // Try StealthEX first as it is the new provider
-            await fetch(`/api/stealthex/transaction/${externalId}`);
-            // If we needed to support legacy ChangeNOW sync, we'd need a conditional logic here,
-            // but for now we focus on the new integration. 
+            // Try ChangeNOW as the primary provider
+            await fetch(`/api/changenow/transaction/${externalId}`);
             await fetchData();
         } catch (error) {
             console.error("Sync failed", error);

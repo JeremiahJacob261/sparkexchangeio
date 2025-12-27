@@ -13,32 +13,38 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        // Support both naming conventions just in case
         const from = body.fromCurrency || body.from;
         const to = body.toCurrency || body.to;
         const amount = body.fromAmount || body.amount;
-        const { address, refundAddress, refundExtraId, extraId } = body;
+        const { address, refundAddress, refundExtraId, extraId, fromNetwork, toNetwork } = body;
+
+        // Default to mainnet if not specified
+        const finalFromNetwork = fromNetwork || 'mainnet';
+        const finalToNetwork = toNetwork || 'mainnet';
 
         // Validate params
         if (!from || !to || !amount || !address) {
             return NextResponse.json({ error: 'Missing parameters' }, { status: 400 });
         }
 
-        // Validate address (Using 'to' as network since StealthEX often uses symbol as network identifier for validation context)
-        if (!validateAddress(address, to)) {
+        // Validate address (Using network from request)
+        if (!validateAddress(address, finalToNetwork)) {
             return NextResponse.json({ error: 'Invalid destination address' }, { status: 400 });
         }
 
-        if (refundAddress && !validateAddress(refundAddress, from)) {
+        if (refundAddress && !validateAddress(refundAddress, finalFromNetwork)) {
             return NextResponse.json({ error: 'Invalid refund address' }, { status: 400 });
         }
 
         const commissionRate = await getCommissionRate();
         const client = new StealthExClient(apiKey);
 
+        // Create exchange using StealthEX v4 API
         const exchange = await client.createExchange({
             from,
             to,
+            fromNetwork: finalFromNetwork,
+            toNetwork: finalToNetwork,
             amount: parseFloat(amount),
             address,
             extraId,
@@ -52,13 +58,13 @@ export async function POST(request: NextRequest) {
             .from('transactions')
             .insert({
                 stealthex_id: exchange.id,
-                payin_address: exchange.address_from,
-                payout_address: exchange.address_to,
+                payin_address: exchange.deposit.address,
+                payout_address: exchange.withdrawal.address,
                 from_currency: from,
                 to_currency: to,
-                from_amount: parseFloat(exchange.amount_from),
-                to_amount: parseFloat(exchange.amount_estimated),
-                status: 'waiting'
+                from_amount: exchange.deposit.expected_amount,
+                to_amount: exchange.withdrawal.expected_amount,
+                status: exchange.status
             });
 
         if (dbError) {
@@ -69,17 +75,18 @@ export async function POST(request: NextRequest) {
             success: true,
             exchange: {
                 id: exchange.id,
-                payinAddress: exchange.address_from,
-                payoutAddress: exchange.address_to,
+                payinAddress: exchange.deposit.address,
+                payoutAddress: exchange.withdrawal.address,
                 fromCurrency: from,
                 toCurrency: to,
-                fromAmount: exchange.amount_from,
-                toAmount: exchange.amount_estimated
+                fromAmount: exchange.deposit.expected_amount,
+                toAmount: exchange.withdrawal.expected_amount,
+                status: exchange.status
             },
             instructions: {
-                payinAddress: exchange.address_from,
-                message: `Send ${exchange.amount_from} ${from.toUpperCase()} to ${exchange.address_from}`,
-                payinExtraId: exchange.extra_id_from || null
+                payinAddress: exchange.deposit.address,
+                message: `Send ${exchange.deposit.expected_amount} ${from.toUpperCase()} to ${exchange.deposit.address}`,
+                payinExtraId: exchange.deposit.extra_id || null
             }
         });
 

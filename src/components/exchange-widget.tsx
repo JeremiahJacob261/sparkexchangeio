@@ -95,7 +95,7 @@ export function ExchangeWidget() {
     useEffect(() => {
         const fetchCurrencies = async () => {
             try {
-                const res = await fetch('/api/stealthex/currencies');
+                const res = await fetch('/api/changenow/currencies');
                 const data = await res.json();
 
                 if (data.success && data.currencies.length > 0) {
@@ -138,8 +138,10 @@ export function ExchangeWidget() {
                 params.append('fromCurrency', fromCurrency.ticker);
                 params.append('toCurrency', toCurrency.ticker);
                 params.append('fromAmount', debouncedFromAmount);
+                if (fromCurrency.network) params.append('fromNetwork', fromCurrency.network);
+                if (toCurrency.network) params.append('toNetwork', toCurrency.network);
 
-                const res = await fetch(`/api/stealthex/estimate?${params.toString()}`);
+                const res = await fetch(`/api/changenow/estimate?${params.toString()}`);
                 const data = await res.json();
 
                 if (data.success) {
@@ -193,10 +195,10 @@ export function ExchangeWidget() {
 
         const checkStatus = async () => {
             try {
-                const res = await fetch(`/api/stealthex/transaction/${txResult.id}`);
+                const res = await fetch(`/api/changenow/transaction/${txResult.id}`);
                 const data = await res.json();
 
-                if (data.success) {
+                if (data.success && data.status) {
                     setTxStatus(data.status);
 
                     if (data.status === 'finished' || data.status === 'failed' || data.status === 'refunded' || data.status === 'expired') {
@@ -282,12 +284,14 @@ export function ExchangeWidget() {
                 toCurrency: toCurrency.ticker,
                 fromAmount: parseFloat(fromAmount),
                 address: destinationAddress,
-                fromNetwork: fromCurrency.network,
-                toNetwork: toCurrency.network,
                 refundAddress: refundAddress || undefined,
             };
 
-            const res = await fetch('/api/stealthex/exchange', {
+            // Add network parameters if available
+            if (fromCurrency.network) payload.fromNetwork = fromCurrency.network;
+            if (toCurrency.network) payload.toNetwork = toCurrency.network;
+
+            const res = await fetch('/api/changenow/exchange', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
@@ -296,7 +300,6 @@ export function ExchangeWidget() {
             const data = await res.json();
 
             if (data.success) {
-                // Ensure data.exchange has all needed fields. stealthEX returns 'deposit_address' mapped to 'payinAddress' in our route
                 setTxResult(data.exchange);
 
                 // Save to local storage as fallback

@@ -14,6 +14,8 @@ export async function GET(request: NextRequest) {
         const fromCurrency = searchParams.get('fromCurrency');
         const toCurrency = searchParams.get('toCurrency');
         const fromAmount = parseFloat(searchParams.get('fromAmount') || '0');
+        const fromNetwork = searchParams.get('fromNetwork') || 'mainnet';
+        const toNetwork = searchParams.get('toNetwork') || 'mainnet';
 
         if (!fromCurrency || !toCurrency || !fromAmount) {
             return NextResponse.json({ error: 'Missing parameters' }, { status: 400 });
@@ -22,20 +24,18 @@ export async function GET(request: NextRequest) {
         const commissionRate = await getCommissionRate();
         const client = new StealthExClient(apiKey);
 
-        // StealthEX estimate
+        // StealthEX v4 estimate - POST to /v4/rates/estimated-amount
         const result = await client.getEstimate(
             fromCurrency,
             toCurrency,
+            fromNetwork,
+            toNetwork,
             fromAmount,
             false, // fixed
             commissionRate // additional_fee_percent
         );
 
-        // Result likely contains { estimated_amount: number, ... } or similar
-        // I need to check exact response shape. Assuming { estimated_amount } based on typical APIs.
-        // If getting range, it might be { min_amount: ..., max_amount: ... }
-
-        // If the client.getEstimate returns an object with estimated_amount:
+        // Result contains { estimated_amount: number, rate?: { id, valid_until } }
         const estimatedAmount = result.estimated_amount;
 
         return NextResponse.json({
@@ -45,9 +45,10 @@ export async function GET(request: NextRequest) {
                 toCurrency,
                 fromAmount,
                 toAmount: estimatedAmount,
-                originalToAmount: estimatedAmount, // We don't verify base without fee, assume result is final
+                originalToAmount: estimatedAmount,
                 markupPercentage: commissionRate,
-                validUntil: null, // StealthEX might not provide this for floating
+                validUntil: result.rate?.valid_until || null,
+                rateId: result.rate?.id || null,
             }
         });
 

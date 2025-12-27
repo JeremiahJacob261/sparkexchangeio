@@ -14,18 +14,20 @@ export async function GET(request: NextRequest) {
         }
 
         const client = new StealthExClient(apiKey);
-        const currencies = await client.getCurrencies();
 
-        // Mapping to match ChangeNOW response structure partially
-        // StealthEX might return distinct entries for networks
+        // Fetch all currencies with pagination to get complete list
+        const currencies = await client.getCurrencies({ limit: 250 });
+
+        // Map StealthEX v4 response to our expected format
         const mappedCurrencies = currencies.map(c => ({
-            ticker: c.symbol, // StealthEX symbols often include network info implicitly e.g. defined by them
+            ticker: c.symbol,
             name: c.name,
-            image: c.image,
-            network: c.validationAddress?.startsWith('0x') ? 'ch' : 'generic', // Rudimentary guessing, likely not needed if we just use ticker
-            // Actually we just pass what we got.
-            // If the frontend relies on `network` field to group, we might need more info.
-            // For now, let's just pass `symbol` as ticker and empty network, or check if StealthEX provides network.
+            image: c.icon_url,
+            network: c.network,
+            hasExtraId: c.extra_id !== null,
+            extraIdName: c.extra_id,
+            addressRegex: c.address_regex,
+            extraIdRegex: c.extra_id_regex
         }));
 
         return NextResponse.json({

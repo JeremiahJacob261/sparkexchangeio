@@ -1,26 +1,31 @@
 
-export const STEALTHEX_API_URL = 'https://api.stealthex.io/api/v2';
+export const STEALTHEX_API_URL = 'https://api.stealthex.io';
 
 export interface StealthEXCurrency {
     symbol: string;
+    network: string;
     name: string;
-    extraId?: string;
-    image: string;
-    validationAddress: string;
-    hasExternalId: boolean;
+    icon_url: string;
+    extra_id: string | null;
+    address_regex: string | null;
+    extra_id_regex: string | null;
+    rates: ('floating' | 'fixed')[];
+    features: string[];
 }
 
-export interface EstimateParams {
-    from: string;
-    to: string;
-    amount: number;
-    fixed?: boolean;
-    additional_fee_percent?: number; // 0 to 100? or 0.0 to 1.0? Documentation usually means percent, e.g. 0.5
+export interface EstimateResponse {
+    estimated_amount: number;
+    rate?: {
+        id: string;
+        valid_until: string;
+    };
 }
 
 export interface CreateExchangeParams {
     from: string;
     to: string;
+    fromNetwork: string;
+    toNetwork: string;
     amount: number;
     address: string;
     extraId?: string;
@@ -28,6 +33,35 @@ export interface CreateExchangeParams {
     refundExtraId?: string;
     fixed?: boolean;
     additional_fee_percent?: number;
+    rate_id?: string;
+}
+
+export interface ExchangeResponse {
+    id: string;
+    status: string;
+    rate: 'floating' | 'fixed';
+    deposit: {
+        symbol: string;
+        network: string;
+        amount: number;
+        expected_amount: number;
+        address: string;
+        extra_id: string | null;
+        tx_hash: string | null;
+    };
+    withdrawal: {
+        symbol: string;
+        network: string;
+        amount: number;
+        expected_amount: number;
+        address: string;
+        extra_id: string | null;
+        tx_hash: string | null;
+    };
+    refund_address: string | null;
+    refund_extra_id: string | null;
+    created_at: string;
+    expires_at: string | null;
 }
 
 export class StealthExClient {
@@ -38,13 +72,13 @@ export class StealthExClient {
     }
 
     private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-        const url = new URL(`${STEALTHEX_API_URL}${endpoint}`);
-        url.searchParams.append('api_key', this.apiKey);
+        const url = `${STEALTHEX_API_URL}${endpoint}`;
 
-        const response = await fetch(url.toString(), {
+        const response = await fetch(url, {
             ...options,
             headers: {
                 'Content-Type': 'application/json',
+                'Authorization': `Bearer ${this.apiKey}`,
                 ...options.headers,
             },
         });
@@ -57,78 +91,91 @@ export class StealthExClient {
             } catch {
                 errorData = { message: errorText };
             }
-            throw new Error(errorData.message || `StealthEX API error: ${response.statusText}`);
+            const errorMessage = errorData.err?.details || errorData.message || `StealthEX API error: ${response.statusText}`;
+            throw new Error(errorMessage);
         }
 
         return response.json();
     }
 
-    async getCurrencies(fixed = false): Promise<StealthEXCurrency[]> {
-        return this.request<StealthEXCurrency[]>('/currency', {
-            method: 'GET', // Standard GET
-        });
-        // Note: Documentation says /currency, filtering by fixed optionally.
-    }
-
-    async getEstimate(from: string, to: string, amount: number, fixed = false, additionalFeePercent?: number) {
-        // According to search: "Get estimated exchange amount" POST. 
-        // Usually /estimate/{from}/{to} is GET in many APIs, but StealthEX v2 might be POST.
-        // Let's try GET first if the URL looks like resource path, but search said POST.
-        // Let's implement POST to /estimate since search result 1 was specific about POST.
-        // Wait, the path might be /estimate
-
-        // Payload based on search:
-        /*
-          {
-            amount: number,
-            rate: 'fixed' | 'floating',
-            route: { from: string, to: string }, // or just 'from' and 'to' fields
-            additional_fee_percent?: number
-          }
-        */
-        // Let's look at similar provider patterns. If uncertain, I will try to support both or add a comment.
-        // I'll try GET /estimate/{symbol}/{symbol} first as it's common (and used by ChangeNOW).
-        // But to be safe, I'll follow the "POST" hint from search result.
-        // Wait, search result "Get exchange range" and "Get estimated exchange amount" were POST.
-
-        // Given I don't have perfect docs, I'll assume:
-        // GET /estimate/{from}/{to}?amount=...&fixed=...&api_key=...
-        // is the most RESTful way. I'll stick to GET params for now as it's safer for "read" operations unless I see errors.
-
+    async getCurrencies(options?: {
+        limit?: number;
+        offset?: number;
+        network?: string;
+        rate?: 'floating' | 'fixed';
+    }): Promise<StealthEXCurrency[]> {
         const params = new URLSearchParams();
-        params.append('amount', amount.toString());
-        params.append('fixed', fixed.toString());
-        if (additionalFeePercent) {
-            params.append('additional_fee_percent', additionalFeePercent.toString());
-        }
+        if (options?.limit) params.append('limit', options.limit.toString());
+        if (options?.offset) params.append('offset', options.offset.toString());
+        if (options?.network) params.append('network', options.network);
+        if (options?.rate) params.append('rate', options.rate);
 
-        // Try GET /estimate/from/to
-        return this.request<any>(`/estimate/${from}/${to}?${params.toString()}`);
+        const query = params.toString();
+        return this.request<StealthEXCurrency[]>(`/v4/currencies${query ? `?${query}` : ''}`);
     }
 
-    // Correction: If the generic GET fails, we might need to adjust. 
-    // But a lot of these APIs (ChangeNOW clones) use similar structures.
+    async getEstimate(
+        from: string,
+        to: string,
+        fromNetwork: string,
+        toNetwork: string,
+        amount: number,
+        fixed = false,
+        additionalFeePercent?: number
+    ): Promise<EstimateResponse> {
+        const payload = {
+            route: {
+                from: {
+                    symbol: from,
+                    network: fromNetwork
+                },
+                to: {
+                    symbol: to,
+                    network: toNetwork
+                }
+            },
+            amount,
+            estimation: 'direct' as const,
+            rate: fixed ? 'fixed' as const : 'floating' as const,
+            ...(additionalFeePercent !== undefined && { additional_fee_percent: additionalFeePercent })
+        };
 
-    async createExchange(data: CreateExchangeParams) {
-        // POST /exchange
-        return this.request<any>('/exchange', {
+        return this.request<EstimateResponse>('/v4/rates/estimated-amount', {
             method: 'POST',
-            body: JSON.stringify({
-                currency_from: data.from,
-                currency_to: data.to,
-                amount: data.amount,
-                address_to: data.address,
-                extra_id_to: data.extraId,
-                address_refund: data.refundAddress,
-                extra_id_refund: data.refundExtraId,
-                fixed: data.fixed,
-                additional_fee_percent: data.additional_fee_percent,
-                // Using snake_case as is common in these APIs
-            }),
+            body: JSON.stringify(payload),
         });
     }
 
-    async getExchange(id: string) {
-        return this.request<any>(`/exchange/${id}`);
+    async createExchange(data: CreateExchangeParams): Promise<ExchangeResponse> {
+        const payload = {
+            route: {
+                from: {
+                    symbol: data.from,
+                    network: data.fromNetwork
+                },
+                to: {
+                    symbol: data.to,
+                    network: data.toNetwork
+                }
+            },
+            amount: data.amount,
+            estimation: 'direct' as const,
+            rate: data.fixed ? 'fixed' as const : 'floating' as const,
+            address: data.address,
+            ...(data.extraId && { extra_id: data.extraId }),
+            ...(data.refundAddress && { refund_address: data.refundAddress }),
+            ...(data.refundExtraId && { refund_extra_id: data.refundExtraId }),
+            ...(data.additional_fee_percent !== undefined && { additional_fee_percent: data.additional_fee_percent }),
+            ...(data.rate_id && { rate_id: data.rate_id })
+        };
+
+        return this.request<ExchangeResponse>('/v4/exchanges', {
+            method: 'POST',
+            body: JSON.stringify(payload),
+        });
+    }
+
+    async getExchange(id: string): Promise<ExchangeResponse> {
+        return this.request<ExchangeResponse>(`/v4/exchanges/${id}`);
     }
 }
