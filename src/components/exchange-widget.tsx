@@ -103,7 +103,7 @@ export function ExchangeWidget() {
 
                     // Default selections: BTC -> ETH
                     // We look for 'btc' and 'eth' tickers.
-                    const btc = data.currencies.find((c: Currency) => c.ticker === 'btc');
+                    const btc = data.currencies.find((c: Currency) => c.ticker === 'sol');
                     const eth = data.currencies.find((c: Currency) => c.ticker === 'eth');
 
                     const defaultFrom = btc || data.currencies[0];

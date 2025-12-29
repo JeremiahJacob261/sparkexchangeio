@@ -84,7 +84,7 @@ export function Footer() {
                     </div>
 
                     {/* Products Links */}
-                    <div>
+                    {/* <div>
                         <h4 className="font-semibold mb-4">Products</h4>
                         <ul className="space-y-3">
                             <li>
@@ -112,7 +112,7 @@ export function Footer() {
                                 </Link>
                             </li>
                         </ul>
-                    </div>
+                    </div> */}
 
                     {/* Resources Links */}
                     <div>
@@ -126,14 +126,14 @@ export function Footer() {
                                     FAQ
                                 </Link>
                             </li>
-                            <li>
+                            {/* <li>
                                 <Link
                                     href="#"
                                     className="text-sm text-muted-foreground hover:text-primary transition-colors"
                                 >
                                     Blog
                                 </Link>
-                            </li>
+                            </li> */}
                             <li>
                                 <Link
                                     href="#"
