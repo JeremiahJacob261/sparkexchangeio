@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, RefreshCcw, LogOut, TrendingUp, Activity, CheckCircle, XCircle, Settings, Save } from "lucide-react";
+import { Loader2, RefreshCcw, LogOut, TrendingUp, Activity, CheckCircle, XCircle, Settings, Save, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import VisitorsGlobe from "@/components/admin/visitors-globe";
 
 interface Transaction {
     id: string;
@@ -221,76 +222,92 @@ export default function AdminDashboard() {
                 </div>
             </div>
 
-            {/* Transactions Table */}
-            <div className="bg-card border border-white/10 rounded-xl overflow-hidden shadow-xl">
-                <div className="px-6 py-4 border-b border-white/5">
-                    <h2 className="font-semibold">Recent Transactions</h2>
+            {/* Globe and Transactions Layout */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                {/* Visitors Globe */}
+                <div className="lg:col-span-1">
+                    <div className="bg-card border border-white/10 rounded-xl overflow-hidden shadow-xl">
+                        <div className="px-6 py-4 border-b border-white/5 flex items-center gap-2">
+                            <Globe className="w-5 h-5 text-primary" />
+                            <h2 className="font-semibold">Global Visitors</h2>
+                        </div>
+                        <div className="p-4">
+                            <VisitorsGlobe />
+                        </div>
+                    </div>
                 </div>
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                        <thead className="bg-muted/50 text-left">
-                            <tr>
-                                <th className="px-6 py-3 font-medium text-muted-foreground">Date</th>
-                                <th className="px-6 py-3 font-medium text-muted-foreground">ID</th>
-                                <th className="px-6 py-3 font-medium text-muted-foreground">Pair</th>
-                                <th className="px-6 py-3 font-medium text-muted-foreground">Amount</th>
-                                <th className="px-6 py-3 font-medium text-muted-foreground">Status</th>
-                                <th className="px-6 py-3 font-medium text-muted-foreground">Address</th>
-                                <th className="px-6 py-3 font-medium text-muted-foreground">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/5">
-                            {transactions.map((tx) => (
-                                <tr key={tx.id} className="hover:bg-white/5 transition-colors">
-                                    <td className="px-6 py-4 text-muted-foreground whitespace-nowrap">
-                                        {new Date(tx.created_at).toLocaleString()}
-                                    </td>
-                                    <td className="px-6 py-4 font-mono text-xs">{tx.stealthex_id || tx.changenow_id}</td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center gap-2 font-bold uppercase">
-                                            <span>{tx.from_currency}</span>
-                                            <span className="text-muted-foreground">→</span>
-                                            <span>{tx.to_currency}</span>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div>{Number(tx.from_amount).toFixed(4)} <span className="text-xs text-muted-foreground uppercase">{tx.from_currency}</span></div>
-                                        <div className="text-xs text-muted-foreground">≈ {Number(tx.to_amount).toFixed(4)} <span className="uppercase">{tx.to_currency}</span></div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize
-                                            ${tx.status === 'finished' || tx.status === 'COMPLETED' ? 'bg-green-500/10 text-green-500' :
-                                                tx.status === 'failed' || tx.status === 'expired' || tx.status === 'refunded' ? 'bg-red-500/10 text-red-500' :
-                                                    'bg-blue-500/10 text-blue-500'}`}>
-                                            {tx.status}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4 max-w-[200px] truncate font-mono text-xs text-muted-foreground" title={tx.payout_address}>
-                                        {tx.payout_address}
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-8 w-8 text-muted-foreground hover:text-white"
-                                            onClick={() => syncTransaction(tx.id, (tx.stealthex_id || tx.changenow_id) as string)}
-                                            disabled={isRefreshing === tx.id}
-                                            title="Sync Status"
-                                        >
-                                            <RefreshCcw className={`w-4 h-4 ${isRefreshing === tx.id ? 'animate-spin' : ''}`} />
-                                        </Button>
-                                    </td>
-                                </tr>
-                            ))}
-                            {transactions.length === 0 && (
+
+                {/* Transactions Table */}
+                <div className="lg:col-span-2 bg-card border border-white/10 rounded-xl overflow-hidden shadow-xl">
+                    <div className="px-6 py-4 border-b border-white/5">
+                        <h2 className="font-semibold">Recent Transactions</h2>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                            <thead className="bg-muted/50 text-left">
                                 <tr>
-                                    <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
-                                        No transactions found yet.
-                                    </td>
+                                    <th className="px-6 py-3 font-medium text-muted-foreground">Date</th>
+                                    <th className="px-6 py-3 font-medium text-muted-foreground">ID</th>
+                                    <th className="px-6 py-3 font-medium text-muted-foreground">Pair</th>
+                                    <th className="px-6 py-3 font-medium text-muted-foreground">Amount</th>
+                                    <th className="px-6 py-3 font-medium text-muted-foreground">Status</th>
+                                    <th className="px-6 py-3 font-medium text-muted-foreground">Address</th>
+                                    <th className="px-6 py-3 font-medium text-muted-foreground">Actions</th>
                                 </tr>
-                            )}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody className="divide-y divide-white/5">
+                                {transactions.map((tx) => (
+                                    <tr key={tx.id} className="hover:bg-white/5 transition-colors">
+                                        <td className="px-6 py-4 text-muted-foreground whitespace-nowrap">
+                                            {new Date(tx.created_at).toLocaleString()}
+                                        </td>
+                                        <td className="px-6 py-4 font-mono text-xs">{tx.stealthex_id || tx.changenow_id}</td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-2 font-bold uppercase">
+                                                <span>{tx.from_currency}</span>
+                                                <span className="text-muted-foreground">→</span>
+                                                <span>{tx.to_currency}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div>{Number(tx.from_amount).toFixed(4)} <span className="text-xs text-muted-foreground uppercase">{tx.from_currency}</span></div>
+                                            <div className="text-xs text-muted-foreground">≈ {Number(tx.to_amount).toFixed(4)} <span className="uppercase">{tx.to_currency}</span></div>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize
+                                            ${tx.status === 'finished' || tx.status === 'COMPLETED' ? 'bg-green-500/10 text-green-500' :
+                                                    tx.status === 'failed' || tx.status === 'expired' || tx.status === 'refunded' ? 'bg-red-500/10 text-red-500' :
+                                                        'bg-blue-500/10 text-blue-500'}`}>
+                                                {tx.status}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 max-w-[200px] truncate font-mono text-xs text-muted-foreground" title={tx.payout_address}>
+                                            {tx.payout_address}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8 text-muted-foreground hover:text-white"
+                                                onClick={() => syncTransaction(tx.id, (tx.stealthex_id || tx.changenow_id) as string)}
+                                                disabled={isRefreshing === tx.id}
+                                                title="Sync Status"
+                                            >
+                                                <RefreshCcw className={`w-4 h-4 ${isRefreshing === tx.id ? 'animate-spin' : ''}`} />
+                                            </Button>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {transactions.length === 0 && (
+                                    <tr>
+                                        <td colSpan={7} className="px-6 py-12 text-center text-muted-foreground">
+                                            No transactions found yet.
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>

@@ -3,7 +3,60 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import crypto from 'crypto';
 
-// Helper to increment visits and track unique
+// Interface for geolocation response
+interface GeoLocation {
+    country: string | null;
+    countryCode: string | null;
+    city: string | null;
+    lat: number | null;
+    lon: number | null;
+}
+
+// Fetch geolocation data from ip-api.com (free, no API key required)
+async function getGeoLocation(ip: string): Promise<GeoLocation> {
+    try {
+        // Skip for localhost/private IPs
+        if (ip === 'unknown' || ip === '127.0.0.1' || ip.startsWith('192.168.') || ip.startsWith('10.') || ip === '::1') {
+            return { country: null, countryCode: null, city: null, lat: null, lon: null };
+        }
+
+        // Get the first IP if multiple (x-forwarded-for can have multiple)
+        const cleanIp = ip.split(',')[0].trim();
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+
+        const response = await fetch(`http://ip-api.com/json/${cleanIp}?fields=status,country,countryCode,city,lat,lon`, {
+            signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+            return { country: null, countryCode: null, city: null, lat: null, lon: null };
+        }
+
+        const data = await response.json();
+
+        if (data.status === 'success') {
+            return {
+                country: data.country || null,
+                countryCode: data.countryCode || null,
+                city: data.city || null,
+                lat: data.lat || null,
+                lon: data.lon || null
+            };
+        }
+
+        return { country: null, countryCode: null, city: null, lat: null, lon: null };
+    } catch (error) {
+        // Silent fail - geolocation is not critical
+        console.error('[track-visit] Geolocation error:', error);
+        return { country: null, countryCode: null, city: null, lat: null, lon: null };
+    }
+}
+
+// Helper to increment visits and track unique with location
 export async function POST(request: NextRequest) {
     try {
         // 1. Increment Total Page Views (simple counter)
@@ -18,45 +71,36 @@ export async function POST(request: NextRequest) {
             updated_at: new Date().toISOString()
         });
 
-        // 2. Track Unique Visitor
-        // Get IP (naive) or just some identifier. 
-        // In Next.js middleware or here, we can try to get IP.
-        const ip = request.headers.get('x-forwarded-for') || 'unknown';
+        // 2. Get IP and user agent
+        const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
         const userAgent = request.headers.get('user-agent') || 'unknown';
 
         // Hash IP for privacy
         const ipHash = crypto.createHash('sha256').update(ip).digest('hex');
 
-        // We try to insert. If conflict (unique constraint on ip_hash), it's not a new unique visitor.
-        // Wait, schema defines unique(ip_hash, visit_date) or just ip_hash?
-        // I should probably update schema to be clear.
-        // Assuming I changed schema to be unique(ip_hash) for lifetime unique, or I query count of distinct.
-        // Let's rely on simple `ip` derived hash insertion.
+        // 3. Fetch geolocation data
+        const geoLocation = await getGeoLocation(ip);
 
-        // Note: For "Total Unique Visitors" we just want count of distinct IPs in visitor_logs.
-        // If we insert every visit, table grows fast.
-        // Better: `insert on conflict do nothing`
-
-        await supabase.from('visitor_logs').insert({
+        // 4. Insert visitor log with location data
+        // Using upsert with unique constraint on (ip_hash, visit_date)
+        await supabase.from('visitor_logs').upsert({
             ip_hash: ipHash,
-            user_agent: userAgent
-        }).select().maybeSingle();
-        // We ignore error if duplicate because we defined unique constraint likely, or we just rely on count later.
-        // Actually, preventing error ensures logs don't spam.
-        // If schema has unique constraint, this throws error unless we handle it. 
-        // Supabase-js `upsert` or `onConflict`? `ignoreDuplicates` option available in older versions, 
-        // for `insert({..}, { onConflict: 'ip_hash', ignoreDuplicates: true })`
-
-        // Let's refine schema in my mind:
-        // If I want "Total Unique", I'll count rows in visitor_logs?
-        // If I insert every time, I need `count(distinct ip_hash)`.
-        // If I insert only unique, I count `*`.
-        // I will use `ignoreDuplicates: true` and rely on a unique constraint on IP.
+            user_agent: userAgent,
+            visit_date: new Date().toISOString().split('T')[0],
+            country: geoLocation.country,
+            country_code: geoLocation.countryCode,
+            city: geoLocation.city,
+            latitude: geoLocation.lat,
+            longitude: geoLocation.lon
+        }, {
+            onConflict: 'ip_hash,visit_date',
+            ignoreDuplicates: true
+        });
 
         return NextResponse.json({ success: true });
     } catch (error) {
-        // console.error("Failed to track visit", error);
+        console.error("[track-visit] Error:", error);
         // Silent fail to not block client
-        return NextResponse.json({ success: true }); // pretend success
+        return NextResponse.json({ success: true });
     }
 }
