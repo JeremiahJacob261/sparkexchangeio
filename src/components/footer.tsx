@@ -27,7 +27,7 @@ export function Footer() {
                         {/* Social Icons */}
                         <div className="flex gap-4 mt-6">
                             <a
-                                href="https://x.com"
+                                href="https://x.com/SparkExchangeDX"
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition-all duration-200"
