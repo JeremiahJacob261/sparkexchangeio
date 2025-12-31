@@ -9,6 +9,14 @@ import { validateAddress } from "@/lib/validation";
 import { QRCodeCanvas } from "qrcode.react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter,
+} from "@/components/ui/dialog";
 
 // Types
 interface Currency {
@@ -73,9 +81,26 @@ export function ExchangeWidget() {
     const [isPolling, setIsPolling] = useState(false);
 
     // Dropdown states
+    // Dropdown states
     const [showFromDropdown, setShowFromDropdown] = useState(false);
     const [showToDropdown, setShowToDropdown] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
+
+    // Min Amount State
+    const [minAmount, setMinAmount] = useState<number>(0);
+
+    // Dialog State
+    const [dialogConfig, setDialogConfig] = useState<{
+        open: boolean;
+        title: string;
+        message: string;
+        type: "success" | "error" | "info";
+    }>({
+        open: false,
+        title: "",
+        message: "",
+        type: "info"
+    });
 
     // Debounce amount for API calls
     const debouncedFromAmount = useDebounce(fromAmount, 500);
@@ -154,6 +179,8 @@ export function ExchangeWidget() {
                     const errorMessage = data.details?.message || data.error || "Estimation failed";
                     setEstimateError(errorMessage);
                     setToAmount("");
+                    // Optional: If it's a hard error, show dialog?
+                    // setDialogConfig({ open: true, title: "Error", message: errorMessage, type: "error" });
                 }
             } catch (error) {
                 console.error("Estimation error", error);
@@ -226,6 +253,46 @@ export function ExchangeWidget() {
             setIsPolling(true);
         }
     }, [txResult]);
+
+    // Fetch Minimum Amount Logic
+    useEffect(() => {
+        async function fetchMinAmount() {
+            if (!fromCurrency || !toCurrency) return;
+
+            try {
+                const params = new URLSearchParams();
+                params.append('fromCurrency', fromCurrency.ticker);
+                params.append('toCurrency', toCurrency.ticker);
+                if (fromCurrency.network) params.append('fromNetwork', fromCurrency.network);
+                if (toCurrency.network) params.append('toNetwork', toCurrency.network);
+
+                const res = await fetch(`/api/changenow/min-amount?${params.toString()}`);
+                const data = await res.json();
+
+                if (data.success && data.range?.minAmount) {
+                    const min = parseFloat(data.range.minAmount);
+                    setMinAmount(min);
+
+                    // If current amount is less than min, update it
+                    // We also handle the case where "equivalent to 2$" is requested. 
+                    // Since we don't have price, we assume API min is the safety floor.
+                    // But if min is very small (e.g 0.000001), maybe we enforce 2$? 
+                    // Without price, we stick to API min to be safe.
+                    setFromAmount(prev => {
+                        const current = parseFloat(prev);
+                        if (!current || current < min) {
+                            return min.toString();
+                        }
+                        return prev;
+                    });
+                }
+            } catch (error) {
+                console.error("Failed to fetch min amount", error);
+            }
+        }
+
+        fetchMinAmount();
+    }, [fromCurrency, toCurrency]);
 
     // Helpers for Stepper
     const getStepStatus = (step: 'deposit' | 'exchange' | 'send' | 'finish') => {
@@ -304,7 +371,6 @@ export function ExchangeWidget() {
             if (data.success) {
                 setTxResult(data.exchange);
 
-                // Save to local storage as fallback
                 const txHistory = JSON.parse(localStorage.getItem("txHistory") || "[]");
                 txHistory.push({
                     id: data.exchange.id,
@@ -314,10 +380,27 @@ export function ExchangeWidget() {
                     amount: fromAmount
                 });
                 localStorage.setItem("txHistory", JSON.stringify(txHistory));
+
+                // Success Dialog
+                setDialogConfig({
+                    open: true,
+                    title: "Exchange Created!",
+                    message: "Your transaction has been successfully created. Please proceed with the deposit.",
+                    type: "success"
+                });
+
             } else {
                 // Use specific error message from details if available
                 const errorMessage = data.details?.message || data.error || "Failed to create transaction";
                 setEstimateError(errorMessage);
+
+                // Error Dialog
+                setDialogConfig({
+                    open: true,
+                    title: "Transaction Failed",
+                    message: errorMessage,
+                    type: "error"
+                });
             }
 
         } catch (error) {
@@ -717,6 +800,27 @@ export function ExchangeWidget() {
                     </Accordion>
                 </div>
             </div>
+            {/* Global Alert Dialog */}
+            <Dialog open={dialogConfig.open} onOpenChange={(open) => setDialogConfig(prev => ({ ...prev, open }))}>
+                <DialogContent className="sm:max-w-md bg-[#0a0a0a] border border-white/10 text-white">
+                    <DialogHeader>
+                        <DialogTitle className={dialogConfig.type === 'error' ? "text-red-500" : "text-green-500"}>
+                            {dialogConfig.title}
+                        </DialogTitle>
+                        <DialogDescription className="text-gray-400">
+                            {dialogConfig.message}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button
+                            onClick={() => setDialogConfig(prev => ({ ...prev, open: false }))}
+                            variant={dialogConfig.type === 'error' ? "destructive" : "default"}
+                        >
+                            Close
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
