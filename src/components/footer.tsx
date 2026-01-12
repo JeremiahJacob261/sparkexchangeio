@@ -135,12 +135,12 @@ export function Footer() {
                                 </Link>
                             </li> */}
                             <li>
-                                <Link
-                                    href="#"
+                                <a
+                                    href="mailto:sparkexchangedex@gmail.com"
                                     className="text-sm text-muted-foreground hover:text-primary transition-colors"
                                 >
                                     Support
-                                </Link>
+                                </a>
                             </li>
                         </ul>
                     </div>

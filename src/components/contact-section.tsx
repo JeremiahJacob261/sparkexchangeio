@@ -4,19 +4,54 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Loader2, Mail, MessageSquare } from "lucide-react";
+import { Send, Loader2, Mail, MessageSquare, AlertCircle } from "lucide-react";
+
+const SUPPORT_EMAIL = "sparkexchangedex@gmail.com";
 
 export function ContactSection() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isSubmitted, setIsSubmitted] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [formData, setFormData] = useState({
+        name: "",
+        email: "",
+        subject: "",
+        message: "",
+    });
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+        const { name, value } = e.target;
+        setFormData((prev) => ({ ...prev, [name]: value }));
+        setError(null); // Clear error when user types
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSubmitting(true);
-        setTimeout(() => {
-            setIsSubmitting(false);
+        setError(null);
+
+        try {
+            const response = await fetch("/api/contact", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(formData),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || "Failed to send message");
+            }
+
             setIsSubmitted(true);
-        }, 2000);
+            setFormData({ name: "", email: "", subject: "", message: "" });
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Failed to send message. Please try again.");
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
@@ -72,10 +107,19 @@ export function ContactSection() {
                             </div>
                         ) : (
                             <form onSubmit={handleSubmit} className="space-y-6">
+                                {error && (
+                                    <div className="flex items-center gap-2 p-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400">
+                                        <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                                        <p className="text-sm">{error}</p>
+                                    </div>
+                                )}
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div className="space-y-2">
                                         <label className="text-sm font-medium">Name</label>
                                         <Input
+                                            name="name"
+                                            value={formData.name}
+                                            onChange={handleInputChange}
                                             placeholder="Your name"
                                             required
                                             className="bg-secondary/50 border-0"
@@ -84,7 +128,10 @@ export function ContactSection() {
                                     <div className="space-y-2">
                                         <label className="text-sm font-medium">Email</label>
                                         <Input
+                                            name="email"
                                             type="email"
+                                            value={formData.email}
+                                            onChange={handleInputChange}
                                             placeholder="your@email.com"
                                             required
                                             className="bg-secondary/50 border-0"
@@ -94,6 +141,9 @@ export function ContactSection() {
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium">Subject</label>
                                     <Input
+                                        name="subject"
+                                        value={formData.subject}
+                                        onChange={handleInputChange}
                                         placeholder="How can we help?"
                                         required
                                         className="bg-secondary/50 border-0"
@@ -102,6 +152,9 @@ export function ContactSection() {
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium">Message</label>
                                     <Textarea
+                                        name="message"
+                                        value={formData.message}
+                                        onChange={handleInputChange}
                                         placeholder="Your message..."
                                         required
                                         className="bg-secondary/50 border-0 min-h-[150px]"
