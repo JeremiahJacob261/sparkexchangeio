@@ -67,9 +67,11 @@ export default function Home() {
                     <ArrowRight className="w-5 h-5" />
                   </Link>
                 </Button>
-                <Button variant="outline" size="xl" className="gap-2">
-                  <Play className="w-5 h-5" />
-                  Watch Video
+                <Button variant="outline" size="xl" className="gap-2" asChild>
+                  <Link href="#video-section">
+                    <Play className="w-5 h-5" />
+                    Watch Video
+                  </Link>
                 </Button>
               </div>
 
