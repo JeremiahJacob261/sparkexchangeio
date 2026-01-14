@@ -83,36 +83,52 @@ export function Footer() {
                         </ul>
                     </div>
 
-                    {/* Products Links */}
-                    {/* <div>
-                        <h4 className="font-semibold mb-4">Products</h4>
+                    {/* Legal Links */}
+                    <div>
+                        <h4 className="font-semibold mb-4">Legal</h4>
                         <ul className="space-y-3">
                             <li>
                                 <Link
-                                    href="#exchange"
+                                    href="/privacy-policy"
                                     className="text-sm text-muted-foreground hover:text-primary transition-colors"
                                 >
-                                    Exchange
+                                    Privacy Policy
                                 </Link>
                             </li>
                             <li>
                                 <Link
-                                    href="#"
+                                    href="/terms-and-conditions"
                                     className="text-sm text-muted-foreground hover:text-primary transition-colors"
                                 >
-                                    API
+                                    Terms & Conditions
                                 </Link>
                             </li>
                             <li>
                                 <Link
-                                    href="#"
+                                    href="/risk-disclosure"
                                     className="text-sm text-muted-foreground hover:text-primary transition-colors"
                                 >
-                                    Widget
+                                    Risk Disclosure
+                                </Link>
+                            </li>
+                            <li>
+                                <Link
+                                    href="/aml-kyc-policy"
+                                    className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                                >
+                                    AML & KYC Policy
+                                </Link>
+                            </li>
+                            <li>
+                                <Link
+                                    href="/disclaimer"
+                                    className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                                >
+                                    Disclaimer
                                 </Link>
                             </li>
                         </ul>
-                    </div> */}
+                    </div>
 
                     {/* Resources Links */}
                     <div>
@@ -126,14 +142,6 @@ export function Footer() {
                                     FAQ
                                 </Link>
                             </li>
-                            {/* <li>
-                                <Link
-                                    href="#"
-                                    className="text-sm text-muted-foreground hover:text-primary transition-colors"
-                                >
-                                    Blog
-                                </Link>
-                            </li> */}
                             <li>
                                 <a
                                     href="mailto:sparkexchangedex@gmail.com"
@@ -149,17 +157,17 @@ export function Footer() {
                 {/* Bottom Bar */}
                 <div className="border-t border-border/50 mt-12 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
                     <p className="text-sm text-muted-foreground">
-                        © 2024 Spark Exchange. All rights reserved.
+                        © 2026 Spark Exchange. All rights reserved.
                     </p>
                     <div className="flex gap-6">
                         <Link
-                            href="#"
+                            href="/privacy-policy"
                             className="text-sm text-muted-foreground hover:text-primary transition-colors"
                         >
                             Privacy Policy
                         </Link>
                         <Link
-                            href="#"
+                            href="/terms-and-conditions"
                             className="text-sm text-muted-foreground hover:text-primary transition-colors"
                         >
                             Terms of Service
