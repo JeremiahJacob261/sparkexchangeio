@@ -53,6 +53,18 @@ export function Header() {
                         >
                             Contact
                         </Link>
+                        <Link
+                            href="/privacy-policy"
+                            className="text-sm font-medium text-foreground/80 hover:text-primary transition-colors"
+                        >
+                            Privacy Policy
+                        </Link>
+                        <Link
+                            href="/terms-and-conditions"
+                            className="text-sm font-medium text-foreground/80 hover:text-primary transition-colors"
+                        >
+                            Terms & Conditions
+                        </Link>
                     </nav>
 
                     {/* CTA Button */}
@@ -107,6 +119,20 @@ export function Header() {
                             onClick={() => setIsMenuOpen(false)}
                         >
                             Contact
+                        </Link>
+                        <Link
+                            href="/privacy-policy"
+                            className="text-sm font-medium text-foreground/80 hover:text-primary transition-colors py-2"
+                            onClick={() => setIsMenuOpen(false)}
+                        >
+                            Privacy Policy
+                        </Link>
+                        <Link
+                            href="/terms-and-conditions"
+                            className="text-sm font-medium text-foreground/80 hover:text-primary transition-colors py-2"
+                            onClick={() => setIsMenuOpen(false)}
+                        >
+                            Terms & Conditions
                         </Link>
                         <Button variant="gradient" size="lg" className="mt-2" asChild>
                             <Link href="#exchange" onClick={() => setIsMenuOpen(false)}>
