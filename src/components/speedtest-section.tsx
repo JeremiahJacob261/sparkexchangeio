@@ -1,13 +1,28 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Zap, Download, Upload, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
+// Speed test configuration
+const SPEED_TEST_CONFIG = {
+    // Cloudflare's speed test endpoints (publicly available)
+    downloadUrls: [
+        "https://speed.cloudflare.com/__down?bytes=10000000", // 10MB
+        "https://speed.cloudflare.com/__down?bytes=25000000", // 25MB
+        "https://speed.cloudflare.com/__down?bytes=50000000", // 50MB
+    ],
+    uploadUrl: "https://speed.cloudflare.com/__up",
+    pingUrl: "https://speed.cloudflare.com/__down?bytes=0",
+    downloadDuration: 10000, // 10 seconds
+    uploadDuration: 10000, // 10 seconds
+    pingCount: 5,
+};
+
 export function SpeedtestSection() {
     const [isRunning, setIsRunning] = useState(false);
-    const [phase, setPhase] = useState<"idle" | "download" | "upload" | "complete">("idle");
-    const [currentSpeed, setCurrentSpeed] = useState(0);
+    const [phase, setPhase] = useState<"idle" | "ping" | "download" | "upload" | "complete">("idle");
+    const [displaySpeed, setDisplaySpeed] = useState(0);
     const [downloadHistory, setDownloadHistory] = useState<number[]>([]);
     const [uploadHistory, setUploadHistory] = useState<number[]>([]);
     const [results, setResults] = useState({
@@ -16,142 +31,391 @@ export function SpeedtestSection() {
         ping: 0,
         jitter: 0,
     });
-    const animationRef = useRef<number | null>(null);
-    const startTimeRef = useRef<number>(0);
+    const [error, setError] = useState<string | null>(null);
+
+    const abortControllerRef = useRef<AbortController | null>(null);
+    const isRunningRef = useRef(false);
+    const targetSpeedRef = useRef(0);
+    const animatedSpeedRef = useRef(0);
+    const animationFrameRef = useRef<number | null>(null);
+    const lastTimeRef = useRef(0);
+
+    // Smooth animation loop for the speedometer - runs continuously
+    useEffect(() => {
+        const animate = (currentTime: number) => {
+            if (lastTimeRef.current === 0) {
+                lastTimeRef.current = currentTime;
+            }
+
+            const deltaTime = Math.min((currentTime - lastTimeRef.current) / 1000, 0.1); // Cap delta to prevent jumps
+            lastTimeRef.current = currentTime;
+
+            // Smooth interpolation towards target speed
+            const target = Math.max(0, targetSpeedRef.current); // Ensure non-negative
+            const current = animatedSpeedRef.current;
+            const lerpFactor = Math.min(1, deltaTime * 10);
+
+            animatedSpeedRef.current = current + (target - current) * lerpFactor;
+
+            // Clamp to reasonable bounds
+            if (animatedSpeedRef.current < 0.01) animatedSpeedRef.current = 0;
+            if (Math.abs(animatedSpeedRef.current - target) < 0.1) {
+                animatedSpeedRef.current = target;
+            }
+
+            // Update display state at ~30fps to reduce re-renders
+            const roundedSpeed = Math.round(animatedSpeedRef.current * 10) / 10;
+            setDisplaySpeed(prev => {
+                if (Math.abs(prev - roundedSpeed) > 0.05) {
+                    return roundedSpeed;
+                }
+                return prev;
+            });
+
+            animationFrameRef.current = requestAnimationFrame(animate);
+        };
+
+        animationFrameRef.current = requestAnimationFrame(animate);
+
+        return () => {
+            if (animationFrameRef.current) {
+                cancelAnimationFrame(animationFrameRef.current);
+            }
+        };
+    }, []); // Empty dependency array - runs once
 
     // Speed to angle conversion (logarithmic scale like speedtest.net)
-    const speedToAngle = (speed: number) => {
+    const speedToAngle = useCallback((speed: number) => {
         if (speed <= 0) return -135;
         const maxAngle = 135;
         const minAngle = -135;
-        // Logarithmic scale: 0->-135, 1->-90, 10->-45, 100->45, 1000->135
         const logSpeed = Math.log10(Math.max(1, speed));
-        const normalizedSpeed = Math.min(logSpeed / 3, 1); // log10(1000) = 3
+        const normalizedSpeed = Math.min(logSpeed / 3, 1);
         return minAngle + (maxAngle - minAngle) * normalizedSpeed;
-    };
+    }, []);
 
-    const runSpeedtest = () => {
+    // Update target speed (called from network callbacks)
+    const updateSpeed = useCallback((speed: number) => {
+        targetSpeedRef.current = Math.max(0, speed); // Ensure non-negative
+    }, []);
+
+    // Measure ping latency
+    const measurePing = useCallback(async (): Promise<{ ping: number; jitter: number }> => {
+        const latencies: number[] = [];
+
+        for (let i = 0; i < SPEED_TEST_CONFIG.pingCount; i++) {
+            if (!isRunningRef.current) break;
+
+            try {
+                const start = performance.now();
+                await fetch(SPEED_TEST_CONFIG.pingUrl, {
+                    method: "GET",
+                    cache: "no-store",
+                    signal: abortControllerRef.current?.signal,
+                });
+                const end = performance.now();
+                latencies.push(end - start);
+            } catch {
+                // Ignore errors during ping test
+            }
+        }
+
+        if (latencies.length === 0) {
+            return { ping: 0, jitter: 0 };
+        }
+
+        const avgPing = latencies.reduce((a, b) => a + b, 0) / latencies.length;
+        const jitter = latencies.length > 1
+            ? latencies.reduce((sum, lat) => sum + Math.abs(lat - avgPing), 0) / latencies.length
+            : 0;
+
+        return {
+            ping: Math.round(avgPing),
+            jitter: Math.round(jitter),
+        };
+    }, []);
+
+    // Measure download speed
+    const measureDownload = useCallback(async (): Promise<number> => {
+        const startTime = performance.now();
+        let totalBytes = 0;
+        const speeds: number[] = [];
+        let lastUpdateTime = startTime;
+        let lastBytes = 0;
+
+        const downloadChunk = async (url: string) => {
+            try {
+                const response = await fetch(url + `&_t=${Date.now()}`, {
+                    method: "GET",
+                    cache: "no-store",
+                    signal: abortControllerRef.current?.signal,
+                });
+
+                if (!response.body) return;
+
+                const reader = response.body.getReader();
+
+                while (isRunningRef.current) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    totalBytes += value.length;
+
+                    const now = performance.now();
+                    const elapsed = now - startTime;
+
+                    // Update speed every 50ms for smoother animation
+                    if (now - lastUpdateTime >= 50) {
+                        const intervalBytes = totalBytes - lastBytes;
+                        const intervalTime = (now - lastUpdateTime) / 1000;
+
+                        if (intervalTime > 0) {
+                            const speedMbps = Math.max(0, (intervalBytes * 8) / (intervalTime * 1000000));
+                            speeds.push(speedMbps);
+                            updateSpeed(speedMbps);
+                            setDownloadHistory(prev => [...prev.slice(-40), speedMbps]);
+                        }
+
+                        lastUpdateTime = now;
+                        lastBytes = totalBytes;
+                    }
+
+                    if (elapsed >= SPEED_TEST_CONFIG.downloadDuration) {
+                        reader.cancel();
+                        break;
+                    }
+                }
+            } catch (err) {
+                if ((err as Error).name !== "AbortError") {
+                    console.error("Download test error:", err);
+                }
+            }
+        };
+
+        const downloadPromises = SPEED_TEST_CONFIG.downloadUrls.map(url => downloadChunk(url));
+
+        await Promise.race([
+            Promise.all(downloadPromises),
+            new Promise(resolve => setTimeout(resolve, SPEED_TEST_CONFIG.downloadDuration + 1000)),
+        ]);
+
+        if (speeds.length === 0) return 0;
+
+        const sortedSpeeds = [...speeds].sort((a, b) => a - b);
+        const trimmedSpeeds = sortedSpeeds.slice(
+            Math.floor(sortedSpeeds.length * 0.1),
+            Math.ceil(sortedSpeeds.length * 0.9)
+        );
+
+        const avgSpeed = trimmedSpeeds.length > 0
+            ? trimmedSpeeds.reduce((a, b) => a + b, 0) / trimmedSpeeds.length
+            : speeds.reduce((a, b) => a + b, 0) / speeds.length;
+
+        return Math.max(0, Math.round(avgSpeed * 10) / 10);
+    }, [updateSpeed]);
+
+    // Measure upload speed
+    const measureUpload = useCallback(async (): Promise<number> => {
+        const startTime = performance.now();
+        const speeds: number[] = [];
+        let lastUpdateTime = startTime;
+
+        const chunkSize = 1000000; // 1MB chunks
+        const data = new Uint8Array(chunkSize);
+
+        for (let i = 0; i < data.length; i++) {
+            data[i] = Math.floor(Math.random() * 256);
+        }
+
+        const uploadChunk = async () => {
+            while (isRunningRef.current) {
+                const elapsed = performance.now() - startTime;
+                if (elapsed >= SPEED_TEST_CONFIG.uploadDuration) break;
+
+                try {
+                    const uploadStart = performance.now();
+
+                    await fetch(SPEED_TEST_CONFIG.uploadUrl, {
+                        method: "POST",
+                        body: data,
+                        signal: abortControllerRef.current?.signal,
+                    });
+
+                    const uploadEnd = performance.now();
+                    const uploadTime = (uploadEnd - uploadStart) / 1000;
+
+                    if (uploadTime > 0) {
+                        const speedMbps = Math.max(0, (chunkSize * 8) / (uploadTime * 1000000));
+                        speeds.push(speedMbps);
+
+                        const now = performance.now();
+                        if (now - lastUpdateTime >= 50) {
+                            updateSpeed(speedMbps);
+                            setUploadHistory(prev => [...prev.slice(-40), speedMbps]);
+                            lastUpdateTime = now;
+                        }
+                    }
+                } catch (err) {
+                    if ((err as Error).name !== "AbortError") {
+                        console.error("Upload test error:", err);
+                    }
+                    break;
+                }
+            }
+        };
+
+        await Promise.race([
+            Promise.all([uploadChunk(), uploadChunk()]),
+            new Promise(resolve => setTimeout(resolve, SPEED_TEST_CONFIG.uploadDuration + 1000)),
+        ]);
+
+        if (speeds.length === 0) return 0;
+
+        const sortedSpeeds = [...speeds].sort((a, b) => a - b);
+        const trimmedSpeeds = sortedSpeeds.slice(
+            Math.floor(sortedSpeeds.length * 0.1),
+            Math.ceil(sortedSpeeds.length * 0.9)
+        );
+
+        const avgSpeed = trimmedSpeeds.length > 0
+            ? trimmedSpeeds.reduce((a, b) => a + b, 0) / trimmedSpeeds.length
+            : speeds.reduce((a, b) => a + b, 0) / speeds.length;
+
+        return Math.max(0, Math.round(avgSpeed * 10) / 10);
+    }, [updateSpeed]);
+
+    const runSpeedtest = async () => {
         setIsRunning(true);
-        setPhase("download");
-        setCurrentSpeed(0);
+        isRunningRef.current = true;
+        setError(null);
+        targetSpeedRef.current = 0;
+        animatedSpeedRef.current = 0;
+        setDisplaySpeed(0);
         setDownloadHistory([]);
         setUploadHistory([]);
         setResults({ download: 0, upload: 0, ping: 0, jitter: 0 });
 
-        // Generate random ping/jitter immediately
-        const ping = Math.floor(Math.random() * 80 + 20);
-        const jitter = Math.floor(Math.random() * 50 + 10);
-        setResults(prev => ({ ...prev, ping, jitter }));
+        abortControllerRef.current = new AbortController();
 
-        startTimeRef.current = Date.now();
-        runDownloadPhase();
+        try {
+            // Phase 1: Ping test
+            setPhase("ping");
+            const { ping, jitter } = await measurePing();
+            setResults(prev => ({ ...prev, ping, jitter }));
+
+            if (!isRunningRef.current) return;
+
+            // Phase 2: Download test
+            setPhase("download");
+            const downloadSpeed = await measureDownload();
+            setResults(prev => ({ ...prev, download: downloadSpeed }));
+            targetSpeedRef.current = 0;
+
+            if (!isRunningRef.current) return;
+
+            // Phase 3: Upload test
+            setPhase("upload");
+            const uploadSpeed = await measureUpload();
+            setResults(prev => ({ ...prev, upload: uploadSpeed }));
+
+            setPhase("complete");
+        } catch (err) {
+            if ((err as Error).name !== "AbortError") {
+                setError("Speed test failed. Please try again.");
+                console.error("Speed test error:", err);
+            }
+            setPhase("idle");
+        } finally {
+            setIsRunning(false);
+            isRunningRef.current = false;
+            targetSpeedRef.current = 0;
+        }
     };
 
-    const runDownloadPhase = () => {
-        const duration = 4000; // 4 seconds for download
-        const targetSpeed = Math.random() * 400 + 100; // 100-500 Mbps
-
-        const animate = () => {
-            const elapsed = Date.now() - startTimeRef.current;
-            const progress = Math.min(elapsed / duration, 1);
-
-            // Simulate speed fluctuations
-            const baseSpeed = targetSpeed * progress;
-            const noise = (Math.random() - 0.5) * 50;
-            const speed = Math.max(0, baseSpeed + noise * progress);
-
-            setCurrentSpeed(speed);
-            setDownloadHistory(prev => [...prev.slice(-30), speed]);
-
-            if (progress < 1) {
-                animationRef.current = requestAnimationFrame(animate);
-            } else {
-                setResults(prev => ({ ...prev, download: Math.round(targetSpeed) }));
-                setPhase("upload");
-                startTimeRef.current = Date.now();
-                runUploadPhase();
-            }
-        };
-
-        animationRef.current = requestAnimationFrame(animate);
-    };
-
-    const runUploadPhase = () => {
-        const duration = 4000; // 4 seconds for upload
-        const targetSpeed = Math.random() * 200 + 50; // 50-250 Mbps
-
-        const animate = () => {
-            const elapsed = Date.now() - startTimeRef.current;
-            const progress = Math.min(elapsed / duration, 1);
-
-            const baseSpeed = targetSpeed * progress;
-            const noise = (Math.random() - 0.5) * 30;
-            const speed = Math.max(0, baseSpeed + noise * progress);
-
-            setCurrentSpeed(speed);
-            setUploadHistory(prev => [...prev.slice(-30), speed]);
-
-            if (progress < 1) {
-                animationRef.current = requestAnimationFrame(animate);
-            } else {
-                setResults(prev => ({ ...prev, upload: Math.round(targetSpeed) }));
-                setPhase("complete");
-                setIsRunning(false);
-                setCurrentSpeed(0);
-            }
-        };
-
-        animationRef.current = requestAnimationFrame(animate);
+    const stopSpeedtest = () => {
+        isRunningRef.current = false;
+        abortControllerRef.current?.abort();
+        setIsRunning(false);
+        setPhase("idle");
+        targetSpeedRef.current = 0;
+        animatedSpeedRef.current = 0;
+        setDisplaySpeed(0);
     };
 
     useEffect(() => {
         return () => {
-            if (animationRef.current) {
-                cancelAnimationFrame(animationRef.current);
-            }
+            isRunningRef.current = false;
+            abortControllerRef.current?.abort();
         };
     }, []);
 
-    const needleAngle = speedToAngle(currentSpeed);
+    // Memoized calculations with safety bounds
+    const needleAngle = useMemo(() => {
+        const angle = speedToAngle(Math.max(0, displaySpeed));
+        return Math.max(-135, Math.min(135, angle)); // Clamp to valid range
+    }, [displaySpeed, speedToAngle]);
 
-    // Graph component
-    const SpeedGraph = ({ data, color }: { data: number[]; color: string }) => {
-        const maxVal = Math.max(...data, 1);
-        const points = data.map((val, i) => {
-            const x = (i / 30) * 100;
-            const y = 100 - (val / maxVal) * 80;
-            return `${x},${y}`;
-        }).join(" ");
+    const arcOffset = useMemo(() => {
+        const progress = (needleAngle + 135) / 270;
+        const offset = 329.87 - (329.87 * Math.max(0, Math.min(1, progress)));
+        return Math.max(0, Math.min(329.87, offset)); // Clamp to valid range
+    }, [needleAngle]);
 
-        const areaPoints = data.length > 0
-            ? `0,100 ${points} 100,100`
-            : "0,100 100,100";
+    // Memoized SpeedGraph component
+    const SpeedGraph = useMemo(() => {
+        return ({ data, color }: { data: number[]; color: string }) => {
+            if (data.length === 0) {
+                return (
+                    <svg className="w-full h-16" viewBox="0 0 100 100" preserveAspectRatio="none">
+                        <line x1="0" y1="100" x2="100" y2="100" stroke={color} strokeWidth="1" opacity="0.3" />
+                    </svg>
+                );
+            }
 
-        return (
-            <svg className="w-full h-16" viewBox="0 0 100 100" preserveAspectRatio="none">
-                <defs>
-                    <linearGradient id={`gradient-${color}`} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor={color} stopOpacity="0.5" />
-                        <stop offset="100%" stopColor={color} stopOpacity="0.05" />
-                    </linearGradient>
-                </defs>
-                <polygon
-                    points={areaPoints}
-                    fill={`url(#gradient-${color})`}
-                    className="transition-all duration-75"
-                />
-                {data.length > 1 && (
-                    <polyline
-                        points={points}
-                        fill="none"
-                        stroke={color}
-                        strokeWidth="2"
-                        className="transition-all duration-75"
+            const maxVal = Math.max(...data.map(v => Math.max(0, v)), 1);
+            const points = data.map((val, i) => {
+                const x = (i / Math.max(data.length - 1, 1)) * 100;
+                const y = 100 - (Math.max(0, val) / maxVal) * 80;
+                return `${x},${y}`;
+            }).join(" ");
+
+            const areaPoints = `0,100 ${points} 100,100`;
+
+            return (
+                <svg className="w-full h-16" viewBox="0 0 100 100" preserveAspectRatio="none">
+                    <defs>
+                        <linearGradient id={`gradient-${color}`} x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stopColor={color} stopOpacity="0.5" />
+                            <stop offset="100%" stopColor={color} stopOpacity="0.05" />
+                        </linearGradient>
+                    </defs>
+                    <polygon
+                        points={areaPoints}
+                        fill={`url(#gradient-${color})`}
                     />
-                )}
-            </svg>
-        );
-    };
+                    {data.length > 1 && (
+                        <polyline
+                            points={points}
+                            fill="none"
+                            stroke={color}
+                            strokeWidth="2"
+                        />
+                    )}
+                </svg>
+            );
+        };
+    }, []);
+
+    // Safe display value
+    const displayValue = useMemo(() => {
+        if (displaySpeed > 0) {
+            return Math.max(0, displaySpeed).toFixed(1);
+        }
+        if (phase === "complete") {
+            return Math.max(0, results.download).toString();
+        }
+        return "0";
+    }, [displaySpeed, phase, results.download]);
 
     return (
         <section id="speedtest" className="relative py-20 overflow-hidden">
@@ -169,13 +433,22 @@ export function SpeedtestSection() {
                         Speed Test
                     </div>
                     <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4">
-                        Want to see how fast your crypto swap can go?{" "}
-                        <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">Take a speed test</span>
+                        Test Your Real Internet Speed{" "}
+                        <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">Before You Swap</span>
                     </h2>
                     <p className="text-muted-foreground text-lg">
-                        Test your connection and see the estimated swap time for lightning-fast crypto exchanges.
+                        Measure your actual connection speed to see how fast your crypto transactions will process.
                     </p>
                 </div>
+
+                {/* Error Message */}
+                {error && (
+                    <div className="max-w-5xl mx-auto mb-6">
+                        <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-red-400 text-center">
+                            {error}
+                        </div>
+                    </div>
+                )}
 
                 {/* Speedtest Card */}
                 <div className="max-w-5xl mx-auto">
@@ -191,7 +464,6 @@ export function SpeedtestSection() {
                                 {/* Speedometer */}
                                 <div className="relative w-64 h-64 md:w-80 md:h-80">
                                     <svg className="w-full h-full" viewBox="0 0 200 200">
-                                        {/* Outer glow */}
                                         <defs>
                                             <filter id="glow">
                                                 <feGaussianBlur stdDeviation="3" result="coloredBlur" />
@@ -216,7 +488,7 @@ export function SpeedtestSection() {
                                             strokeLinecap="round"
                                         />
 
-                                        {/* Active arc (animated) */}
+                                        {/* Active arc - clamped values */}
                                         <path
                                             d="M 30 150 A 70 70 0 1 1 170 150"
                                             fill="none"
@@ -225,12 +497,11 @@ export function SpeedtestSection() {
                                             strokeLinecap="round"
                                             filter="url(#glow)"
                                             strokeDasharray="329.87"
-                                            strokeDashoffset={329.87 - (329.87 * ((needleAngle + 135) / 270))}
-                                            className="transition-all duration-100"
+                                            strokeDashoffset={arcOffset}
                                         />
 
                                         {/* Scale markers */}
-                                        {[0, 1, 5, 10, 100, 500, 1000].map((value, i) => {
+                                        {[0, 1, 5, 10, 100, 500, 1000].map((value) => {
                                             const angle = speedToAngle(value) * (Math.PI / 180);
                                             const x1 = 100 + Math.cos(angle - Math.PI / 2) * 55;
                                             const y1 = 100 + Math.sin(angle - Math.PI / 2) * 55;
@@ -256,8 +527,8 @@ export function SpeedtestSection() {
                                             );
                                         })}
 
-                                        {/* Needle */}
-                                        <g transform={`rotate(${needleAngle}, 100, 100)`} className="transition-transform duration-100">
+                                        {/* Needle - clamped angle */}
+                                        <g transform={`rotate(${needleAngle}, 100, 100)`}>
                                             <polygon
                                                 points="100,35 96,100 104,100"
                                                 fill="url(#arcGradient)"
@@ -269,12 +540,20 @@ export function SpeedtestSection() {
 
                                     {/* Center display */}
                                     <div className="absolute inset-0 flex flex-col items-center justify-center pt-8">
-                                        <Download className={`w-8 h-8 mb-2 transition-colors duration-300 ${phase === "download" ? "text-cyan-400 animate-pulse" : phase === "upload" ? "text-purple-400" : "text-cyan-400/50"}`} />
-                                        <span className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent transition-all duration-100">
-                                            {currentSpeed > 0 ? currentSpeed.toFixed(1) : (phase === "complete" ? results.download : "0")}
+                                        {phase === "ping" ? (
+                                            <Activity className="w-8 h-8 mb-2 text-green-400 animate-pulse" />
+                                        ) : phase === "download" ? (
+                                            <Download className="w-8 h-8 mb-2 text-cyan-400 animate-pulse" />
+                                        ) : phase === "upload" ? (
+                                            <Upload className="w-8 h-8 mb-2 text-purple-400 animate-pulse" />
+                                        ) : (
+                                            <Download className="w-8 h-8 mb-2 text-cyan-400/50" />
+                                        )}
+                                        <span className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent tabular-nums">
+                                            {displayValue}
                                         </span>
                                         <span className="text-sm text-gray-400 mt-1">
-                                            {phase === "download" ? "Mbps download" : phase === "upload" ? "Mbps upload" : "Mbps"}
+                                            {phase === "ping" ? "Testing latency..." : phase === "download" ? "Mbps download" : phase === "upload" ? "Mbps upload" : "Mbps"}
                                         </span>
                                     </div>
                                 </div>
@@ -290,11 +569,13 @@ export function SpeedtestSection() {
                                     </Button>
                                 )}
                                 {isRunning && (
-                                    <div className="mt-6 px-6 py-3 bg-cyan-500/10 rounded-full border border-cyan-500/30">
-                                        <span className="text-cyan-400 font-medium animate-pulse">
-                                            {phase === "download" ? "Testing Download..." : "Testing Upload..."}
-                                        </span>
-                                    </div>
+                                    <Button
+                                        onClick={stopSpeedtest}
+                                        variant="outline"
+                                        className="mt-6 px-10 py-6 text-lg font-semibold border-red-500/50 text-red-400 hover:bg-red-500/10 rounded-full transition-all duration-300"
+                                    >
+                                        Stop Test
+                                    </Button>
                                 )}
                                 {phase === "complete" && (
                                     <Button
@@ -310,14 +591,14 @@ export function SpeedtestSection() {
                             {/* Right - Stats */}
                             <div className="flex flex-col gap-4">
                                 {/* Download Stats */}
-                                <div className="bg-[#12121f] rounded-2xl p-5 border border-cyan-500/10 hover:border-cyan-500/30 transition-all duration-300">
+                                <div className="bg-[#12121f] rounded-2xl p-5 border border-cyan-500/10 hover:border-cyan-500/30 transition-colors duration-300">
                                     <div className="flex items-center gap-2 mb-3">
                                         <Download className="w-5 h-5 text-cyan-400" />
                                         <span className="text-gray-400 font-medium uppercase tracking-wider text-sm">Download</span>
                                     </div>
                                     <div className="flex items-baseline gap-2 mb-3">
-                                        <span className="text-4xl font-bold text-white">
-                                            {phase === "complete" || phase === "upload" ? results.download : (phase === "download" ? Math.round(currentSpeed) : "---")}
+                                        <span className="text-4xl font-bold text-white tabular-nums">
+                                            {phase === "complete" || phase === "upload" ? results.download : (phase === "download" ? Math.max(0, Math.round(displaySpeed)) : "---")}
                                         </span>
                                         <span className="text-gray-500">Mbps</span>
                                     </div>
@@ -327,14 +608,14 @@ export function SpeedtestSection() {
                                 </div>
 
                                 {/* Upload Stats */}
-                                <div className="bg-[#12121f] rounded-2xl p-5 border border-purple-500/10 hover:border-purple-500/30 transition-all duration-300">
+                                <div className="bg-[#12121f] rounded-2xl p-5 border border-purple-500/10 hover:border-purple-500/30 transition-colors duration-300">
                                     <div className="flex items-center gap-2 mb-3">
                                         <Upload className="w-5 h-5 text-purple-400" />
                                         <span className="text-gray-400 font-medium uppercase tracking-wider text-sm">Upload</span>
                                     </div>
                                     <div className="flex items-baseline gap-2 mb-3">
-                                        <span className="text-4xl font-bold text-white">
-                                            {phase === "complete" ? results.upload : (phase === "upload" ? Math.round(currentSpeed) : "---")}
+                                        <span className="text-4xl font-bold text-white tabular-nums">
+                                            {phase === "complete" ? results.upload : (phase === "upload" ? Math.max(0, Math.round(displaySpeed)) : "---")}
                                         </span>
                                         <span className="text-gray-500">Mbps</span>
                                     </div>
@@ -345,26 +626,26 @@ export function SpeedtestSection() {
 
                                 {/* Ping & Jitter */}
                                 <div className="grid grid-cols-2 gap-4">
-                                    <div className="bg-[#12121f] rounded-2xl p-5 border border-green-500/10 hover:border-green-500/30 transition-all duration-300">
+                                    <div className="bg-[#12121f] rounded-2xl p-5 border border-green-500/10 hover:border-green-500/30 transition-colors duration-300">
                                         <div className="flex items-center gap-2 mb-2">
-                                            <Activity className="w-4 h-4 text-green-400 animate-pulse" />
+                                            <Activity className="w-4 h-4 text-green-400" />
                                             <span className="text-gray-400 font-medium uppercase tracking-wider text-xs">Ping</span>
                                         </div>
                                         <div className="flex items-baseline gap-1">
-                                            <span className="text-3xl font-bold text-white">
-                                                {isRunning || phase === "complete" ? results.ping : "---"}
+                                            <span className="text-3xl font-bold text-white tabular-nums">
+                                                {results.ping > 0 || phase !== "idle" ? results.ping : "---"}
                                             </span>
                                             <span className="text-gray-500 text-sm">ms</span>
                                         </div>
                                     </div>
-                                    <div className="bg-[#12121f] rounded-2xl p-5 border border-yellow-500/10 hover:border-yellow-500/30 transition-all duration-300">
+                                    <div className="bg-[#12121f] rounded-2xl p-5 border border-yellow-500/10 hover:border-yellow-500/30 transition-colors duration-300">
                                         <div className="flex items-center gap-2 mb-2">
-                                            <Activity className="w-4 h-4 text-yellow-400 animate-pulse" />
+                                            <Activity className="w-4 h-4 text-yellow-400" />
                                             <span className="text-gray-400 font-medium uppercase tracking-wider text-xs">Jitter</span>
                                         </div>
                                         <div className="flex items-baseline gap-1">
-                                            <span className="text-3xl font-bold text-white">
-                                                {isRunning || phase === "complete" ? results.jitter : "---"}
+                                            <span className="text-3xl font-bold text-white tabular-nums">
+                                                {results.jitter > 0 || phase !== "idle" ? results.jitter : "---"}
                                             </span>
                                             <span className="text-gray-500 text-sm">ms</span>
                                         </div>
@@ -379,9 +660,11 @@ export function SpeedtestSection() {
                                                 <span className="text-gray-400 text-sm">Estimated Crypto Swap Time</span>
                                                 <div className="flex items-baseline gap-2 mt-1">
                                                     <span className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
-                                                        {Math.max(3, Math.round(10 - (results.download / 100)))}s
+                                                        {results.download > 100 ? "< 3s" : results.download > 50 ? "3-5s" : results.download > 10 ? "5-10s" : "10-30s"}
                                                     </span>
-                                                    <span className="text-green-400 text-sm">⚡ Lightning Fast</span>
+                                                    <span className="text-green-400 text-sm">
+                                                        {results.download > 50 ? "⚡ Lightning Fast" : results.download > 10 ? "✓ Good Speed" : "⏱ Moderate"}
+                                                    </span>
                                                 </div>
                                             </div>
                                             <Zap className="w-10 h-10 text-yellow-400 animate-pulse" />
