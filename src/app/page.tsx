@@ -8,6 +8,7 @@ import { Footer } from "@/components/footer";
 import { ExchangeWidget } from "@/components/exchange-widget";
 import { HowItWorksSection } from "@/components/how-it-works-section";
 import { VideoSection } from "@/components/video-section";
+import { LiveTVSection } from "@/components/live-tv-section";
 import { SpeedtestSection } from "@/components/speedtest-section";
 import { FeaturesSection } from "@/components/features-section";
 // import { TestimonialsSection } from "@/components/testimonials-section";
@@ -114,6 +115,9 @@ export default function Home() {
 
       {/* Video Section */}
       <VideoSection />
+
+      {/* Live TV Section */}
+      <LiveTVSection />
 
       {/* Speedtest Section */}
       <SpeedtestSection />

@@ -28,7 +28,7 @@ export function Header() {
                     </Link>
 
                     {/* Desktop Navigation */}
-                    <nav className="hidden md:flex items-center gap-8">
+                    <nav className="hidden xl:flex items-center gap-5">
                         <Link
                             href="/"
                             className="text-sm font-medium text-foreground/80 hover:text-primary transition-colors"
@@ -40,6 +40,13 @@ export function Header() {
                             className="text-sm font-medium text-foreground/80 hover:text-primary transition-colors"
                         >
                             How it works
+                        </Link>
+                        <Link
+                            href="/#live-tv"
+                            className="text-sm font-medium text-foreground/80 hover:text-primary transition-colors py-2"
+                            onClick={() => setIsMenuOpen(false)}
+                        >
+                            Live TV
                         </Link>
                         <Link
                             href="#about"
@@ -68,7 +75,7 @@ export function Header() {
                     </nav>
 
                     {/* CTA Button */}
-                    <div className="hidden md:block">
+                    <div className="hidden xl:block">
                         <Button variant="gradient" size="lg" asChild>
                             <Link href="#exchange">Start Exchange</Link>
                         </Button>
@@ -76,7 +83,10 @@ export function Header() {
 
                     {/* Mobile Menu Button */}
                     <button
-                        className="md:hidden p-2 rounded-lg hover:bg-muted transition-colors"
+                        className="xl:hidden p-2 min-w-11 min-h-11 rounded-lg hover:bg-muted transition-colors"
+                        aria-label={isMenuOpen ? "Close navigation menu" : "Open navigation menu"}
+                        aria-expanded={isMenuOpen}
+                        aria-controls="mobile-navigation"
                         onClick={() => setIsMenuOpen(!isMenuOpen)}
                     >
                         {isMenuOpen ? (
@@ -90,8 +100,8 @@ export function Header() {
 
             {/* Mobile Menu */}
             {isMenuOpen && (
-                <div className="md:hidden absolute top-full left-0 right-0 bg-background border-b border-border/50">
-                    <nav className="container mx-auto px-4 py-4 flex flex-col gap-4">
+                <div className="xl:hidden absolute top-full left-0 right-0 bg-background border-b border-border/50">
+                    <nav id="mobile-navigation" className="container mx-auto px-4 py-4 flex flex-col gap-4 max-h-[calc(100dvh-80px)] overflow-y-auto">
                         <Link
                             href="/"
                             className="text-sm font-medium text-foreground/80 hover:text-primary transition-colors py-2"
@@ -105,6 +115,13 @@ export function Header() {
                             onClick={() => setIsMenuOpen(false)}
                         >
                             How it works
+                        </Link>
+                        <Link
+                            href="/#live-tv"
+                            className="text-sm font-medium text-foreground/80 hover:text-primary transition-colors py-2"
+                            onClick={() => setIsMenuOpen(false)}
+                        >
+                            Live TV
                         </Link>
                         <Link
                             href="#about"
