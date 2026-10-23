@@ -1,5 +1,3 @@
-"use client";
-
 import Link from "next/link";
 import { ArrowRight, Play, Shield, Zap, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,33 +6,28 @@ import { Footer } from "@/components/footer";
 import { ExchangeWidget } from "@/components/exchange-widget";
 import { HowItWorksSection } from "@/components/how-it-works-section";
 import { VideoSection } from "@/components/video-section";
-import { LiveTVSection } from "@/components/live-tv-section";
-import { SpeedtestSection } from "@/components/speedtest-section";
+import { DeferredLandingSection } from "@/components/deferred-landing-section";
+import { VisitTracker } from "@/components/visit-tracker";
 import { FeaturesSection } from "@/components/features-section";
 // import { TestimonialsSection } from "@/components/testimonials-section";
 import { FAQSection } from "@/components/faq-section";
 import { ContactSection } from "@/components/contact-section";
 import { CTASection } from "@/components/cta-section";
 
-import { useEffect } from "react";
 
 export default function Home() {
-  useEffect(() => {
-    // Fire and forget visit tracking
-    fetch('/api/track-visit', { method: 'POST' });
-  }, []);
-
   return (
-    <div className="min-h-screen bg-background">
+    <div className="landing-shell min-h-screen bg-background">
+      <VisitTracker />
       <Header />
 
       {/* Hero Section */}
       <section id="exchange" className="relative pt-24 md:pt-32 pb-20 overflow-hidden">
         {/* Background Effects */}
         <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-yellow-500/20 rounded-full blur-[120px]"></div>
-          <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-amber-500/15 rounded-full blur-[100px]"></div>
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-primary/5 rounded-full blur-[150px]"></div>
+          <div className="ambient-glow absolute top-0 left-1/4 w-[500px] h-[500px] bg-yellow-500/20 rounded-full blur-[120px]"></div>
+          <div className="ambient-glow absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-amber-500/15 rounded-full blur-[100px]"></div>
+          <div className="ambient-glow absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-primary/5 rounded-full blur-[150px]"></div>
         </div>
 
         {/* Grid Pattern Overlay */}
@@ -117,10 +110,10 @@ export default function Home() {
       <VideoSection />
 
       {/* Live TV Section */}
-      <LiveTVSection />
+      <DeferredLandingSection kind="tv" />
 
       {/* Speedtest Section */}
-      <SpeedtestSection />
+      <DeferredLandingSection kind="speedtest" />
 
       {/* Features Section */}
       <FeaturesSection />

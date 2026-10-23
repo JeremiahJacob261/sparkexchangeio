@@ -118,8 +118,8 @@ export function FeaturesSection() {
                             </div>
                         </div>
                         {/* Decorative elements */}
-                        <div className="absolute -top-4 -right-4 w-24 h-24 bg-primary/20 rounded-full blur-3xl"></div>
-                        <div className="absolute -bottom-4 -left-4 w-32 h-32 bg-amber-500/20 rounded-full blur-3xl"></div>
+                        <div className="ambient-glow absolute -top-4 -right-4 w-24 h-24 bg-primary/20 rounded-full blur-3xl"></div>
+                        <div className="ambient-glow absolute -bottom-4 -left-4 w-32 h-32 bg-amber-500/20 rounded-full blur-3xl"></div>
                     </div>
                 </div>
             </div>

@@ -15,7 +15,13 @@
     "src/components/video-section.tsx",
     "src/components/ui/button.tsx",
     "src/components/live-tv-section.tsx",
-    "src/components/live-tv.module.css"
+    "src/components/live-tv.module.css",
+    "src/components/deferred-landing-section.tsx",
+    "src/components/visit-tracker.tsx",
+    "src/components/speedtest-section.tsx",
+    "src/lib/tv-catalog.ts",
+    "src/app/api/tv-channels/route.ts",
+    "tests/live-tv.test.cjs"
   ],
   "tokens": {
     "colorFormat": "HSL components consumed with hsl(var(--token))",
@@ -65,15 +71,30 @@
     "videoRadiusPx": 12,
     "controlRadiusPx": 10,
     "localColorExceptions": { "videoCanvas": "#000", "stopForeground": "#000" },
-    "controls": ["search", "category", "favorites", "channel selection", "Load more", "native video controls", "Full screen", "Stop"],
+    "controls": ["search", "category", "favorites", "channel selection", "Previous", "Next channels", "native video controls", "Full screen", "Stop"],
     "states": ["directory loading", "directory error and retry", "empty filters or favorites", "connecting", "playing", "stopped", "unavailable public feed"],
     "accessibilityObservedInSource": ["named controls", "pressed states", "status regions", "visible focus", "44px action targets", "reduced-motion-aware selection scrolling"],
-    "autoplayOnEntry": false
+    "autoplayOnEntry": false,
+    "pagination": { "pageSize": 100, "mode": "replace", "searchScope": "full server-side catalog", "listScrollResetsOnPageResponse": true, "selectedPlaybackIndependentOfBrowsing": true },
+    "favoritesTransport": { "storage": "browser-local with session fallback", "filterMethod": "POST", "responseCacheControl": "private, no-store" }
+  },
+  "performance": {
+    "landingPage": "server component with isolated VisitTracker client component",
+    "deferredSections": { "rootMarginPx": 300, "fallbackMinHeightPx": { "tv": 960, "speedtest": 900 }, "preservesSectionAnchors": true },
+    "vimeoLoading": "native lazy iframe",
+    "catalog": { "parsingAndSearch": "server-side", "warmProcessCacheSeconds": 300, "concurrentRefresh": "singleflight", "publicCDNCacheSeconds": 300 },
+    "mobileDecoration": { "maxWidthPx": 767, "ambientGlows": "hidden", "backdropBlur": "removed", "headerBackground": "existing background token", "continuousAnimationsStopped": ["pulse", "bounce", "shimmer"] },
+    "reducedMotion": { "ambientGlows": "hidden", "landingAnimationsAndTransitions": "disabled", "scrollBehavior": "auto" },
+    "speedReadout": { "animationConditions": ["test running", "section visible", "tab visible"], "maxReactUpdatesPerSecond": 20, "hiddenTab": "abort test with restart message", "complete": "settled measured download result" },
+    "hls": { "capLevelToPlayerSize": true, "maxBufferLengthSeconds": 15, "maxMaxBufferLengthSeconds": 30, "backBufferLengthSeconds": 10 },
+    "tokensAndBrandingChanged": false
   },
   "review": {
     "disposition": "ship",
     "scope": "code and structure",
     "materialFindings": [],
+    "performanceCorrectionDisposition": "ship",
+    "reportedImplementationEvidence": { "testsPassed": 8, "firstPageBytes": 27765, "previousFullDirectoryBytes": 2850684, "rerunByDocumentationPass": false },
     "graphicalScreenshotCertified": false,
     "deviceRenderingCertified": false,
     "decodedVideoCertified": false,

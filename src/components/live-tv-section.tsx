@@ -4,7 +4,7 @@ import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, us
 import { ChevronDown, Maximize, Search, Square, Star, Tv } from "lucide-react";
 import type Hls from "hls.js";
 import { Button } from "@/components/ui/button";
-import { parseTVPlaylist, tvRelayURL, tvStationKey, type TVChannel } from "@/lib/tv-playlist";
+import { tvRelayURL, tvStationKey, type TVChannel } from "@/lib/tv-playlist";
 import styles from "./live-tv.module.css";
 
 const FAVORITES_KEY = "sparkexchange-tv-favorites-v1";
@@ -21,9 +21,11 @@ function serverFavorites() { return EMPTY_FAVORITES; }
 export function LiveTVSection() {
   const sectionRef = useRef<HTMLElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   const requestRef = useRef<AbortController | null>(null);
   const [channels, setChannels] = useState<TVChannel[]>([]);
   const [loading, setLoading] = useState(true);
+  const [directoryVisible, setDirectoryVisible] = useState(false);
   const [directoryError, setDirectoryError] = useState("");
   const [query, setQuery] = useState("");
   const search = useDeferredValue(query.trim().toLowerCase());
@@ -36,7 +38,9 @@ export function LiveTVSection() {
     try { const saved: unknown = JSON.parse(storedFavorites); return new Set(Array.isArray(saved) ? saved.filter((x): x is string => typeof x === "string") : []); }
     catch { return new Set<string>(); }
   }, [storedFavorites, sessionFavorites]);
-  const [pageSize, setPageSize] = useState(100);
+  const [page, setPage] = useState(0);
+  const [catalog, setCatalog] = useState({categories: [] as string[], total: 0, count: 0, page: 0});
+  const favoritesKey = favoritesOnly ? JSON.stringify([...favorites].sort()) : "";
   const [selected, setSelected] = useState<TVChannel | null>(null);
   const [playbackStatus, setPlaybackStatus] = useState("Select a channel to watch.");
 
@@ -46,20 +50,20 @@ export function LiveTVSection() {
     requestRef.current = controller;
     setLoading(true); setDirectoryError("");
     try {
-      const response = await fetch("/api/tv-channels", {signal: controller.signal});
+      const response = await fetch("/api/tv-channels?" + new URLSearchParams({q: search, category, page: String(page)}), {signal: controller.signal, ...(favoritesOnly ? {method: "POST", body: favoritesKey, headers: {"Content-Type": "application/json"}} : {})});
       const data = await response.json();
       if (controller.signal.aborted) return;
       if (!response.ok) throw new Error(data.error || "The channel directory could not load.");
-      if (typeof data.text !== "string" || typeof data.url !== "string") throw new Error("The channel directory returned an invalid response.");
-      const parsed = parseTVPlaylist(data.text, data.url);
-      if (!parsed.length) throw new Error("No channels were returned. Please retry.");
-      setChannels(parsed);
+      if (!Array.isArray(data.channels) || !Array.isArray(data.categories)) throw new Error("The channel directory returned an invalid response.");
+      setChannels(data.channels);
+      setCatalog({categories: data.categories, total: data.total, count: data.count, page: data.page});
+      if (listRef.current) listRef.current.scrollTop = 0;
     } catch (error) {
       if (!controller.signal.aborted) setDirectoryError(error instanceof Error ? error.message : "Could not load channels. Please retry.");
     } finally {
       if (!controller.signal.aborted) setLoading(false);
     }
-  }, []);
+  }, [search, category, page, favoritesOnly, favoritesKey]);
 
   useEffect(() => {
     // Keep the exchange landing page light: fetch the directory near the TV section.
@@ -67,19 +71,19 @@ export function LiveTVSection() {
     let observer: IntersectionObserver | undefined;
     if (section && "IntersectionObserver" in window) {
       observer = new IntersectionObserver(entries => {
-        if (entries.some(entry => entry.isIntersecting)) { observer?.disconnect(); void loadChannels(); }
+        if (entries.some(entry => entry.isIntersecting)) { observer?.disconnect(); setDirectoryVisible(true); }
       }, {rootMargin: "300px"});
       observer.observe(section);
-    } else { void loadChannels(); }
-    return () => { observer?.disconnect(); requestRef.current?.abort(); };
-  }, [loadChannels]);
+    } else { const timer = setTimeout(() => setDirectoryVisible(true), 0); return () => clearTimeout(timer); }
+    return () => { observer?.disconnect(); };
+  }, []);
 
-  const categories = useMemo(() => [...new Set(channels.flatMap(channel => channel.group.split(";")).filter(Boolean))].sort(), [channels]);
-  const filtered = useMemo(() => channels.filter(channel =>
-    (!search || channel.name.toLowerCase().includes(search)) &&
-    (!category || channel.group.split(";").includes(category)) &&
-    (!favoritesOnly || favorites.has(channel.url))
-  ), [channels, search, category, favoritesOnly, favorites]);
+  useEffect(() => {
+    if (directoryVisible) void loadChannels();
+    return () => requestRef.current?.abort();
+  }, [directoryVisible, loadChannels]);
+
+  const categories = catalog.categories;
 
   useEffect(() => {
     const video = videoRef.current;
@@ -87,7 +91,8 @@ export function LiveTVSection() {
     let disposed = false, connection = 0, hls: Hls | undefined;
     let feed = selected, relayed = requiresRelay(feed), fallbackBusy = false, recovered = false;
     const tried = new Set([selected.url]);
-    const candidates = channels.filter(channel => tvStationKey(channel) === tvStationKey(selected));
+    let candidates: TVChannel[] | undefined;
+    const alternativesRequest = new AbortController();
     function requiresRelay(channel: TVChannel) { return channel.url.startsWith("http:") || Boolean(channel.userAgent || channel.referer); }
     function current(epoch: number) { return !disposed && connection === epoch; }
     function clearMedia() {
@@ -99,7 +104,15 @@ export function LiveTVSection() {
       if (!current(epoch) || fallbackBusy) return;
       fallbackBusy = true;
       if (!relayed) { relayed = true; setPlaybackStatus("Retrying through the media relay…"); await connect(); return; }
-      const next = candidates.find(channel => !tried.has(channel.url));
+      if (!candidates) {
+        try {
+          const response = await fetch("/api/tv-channels?" + new URLSearchParams({station: tvStationKey(selected!)}), {signal: alternativesRequest.signal});
+          const data = await response.json();
+          candidates = response.ok && Array.isArray(data.channels) ? data.channels : [];
+        } catch { candidates = []; }
+      }
+      if (!current(epoch)) return;
+      const next = candidates!.find(channel => !tried.has(channel.url));
       if (next && tried.size < 3) {
         feed = next; tried.add(feed.url); relayed = requiresRelay(feed);
         setPlaybackStatus("Trying another public feed of this channel…"); await connect(); return;
@@ -127,7 +140,7 @@ export function LiveTVSection() {
           const {default: HlsPlayer} = await import("hls.js");
           if (!current(epoch)) return;
           if (!HlsPlayer.isSupported()) { setPlaybackStatus("This browser cannot play this stream format. Try another channel or browser."); return; }
-          hls = new HlsPlayer({manifestLoadingTimeOut: 15000, fragLoadingTimeOut: 20000, manifestLoadingMaxRetry: 0, levelLoadingMaxRetry: 1, fragLoadingMaxRetry: 1});
+          hls = new HlsPlayer({capLevelToPlayerSize: true, maxBufferLength: 15, maxMaxBufferLength: 30, backBufferLength: 10, manifestLoadingTimeOut: 15000, fragLoadingTimeOut: 20000, manifestLoadingMaxRetry: 0, levelLoadingMaxRetry: 1, fragLoadingMaxRetry: 1});
           hls.on(HlsPlayer.Events.MANIFEST_PARSED, start);
           hls.on(HlsPlayer.Events.ERROR, (_, data) => {
             if (!current(epoch) || !data.fatal) return;
@@ -139,8 +152,8 @@ export function LiveTVSection() {
       } catch { if (current(epoch)) { clearMedia(); setPlaybackStatus("The video player could not start. Select the channel again to retry."); } }
     }
     void connect();
-    return () => { disposed = true; ++connection; clearMedia(); };
-  }, [selected, channels]);
+    return () => { disposed = true; ++connection; alternativesRequest.abort(); clearMedia(); };
+  }, [selected]);
 
   function choose(channel: TVChannel) {
     // A fresh object permits retrying the currently selected channel.
@@ -173,7 +186,7 @@ export function LiveTVSection() {
           <a href="https://free-iptv-player-sigma.vercel.app/iptv-player/" target="_blank" rel="noopener noreferrer" className={styles.fullPlayer}>Open full IPTV player <span className="sr-only">(opens in a new tab)</span></a>
         </div>
         <p className={styles.directoryStatus} role="status">
-          {loading ? "Loading channels…" : directoryError || `${channels.length.toLocaleString()} channels loaded. Select a channel to watch.`}
+          {loading ? "Loading channels…" : directoryError || `${catalog.total.toLocaleString()} channels loaded. Select a channel to watch.`}
         </p>
         {directoryError ? <Button type="button" variant="outline" className="mb-6 min-h-11" onClick={() => void loadChannels()}>Retry loading channels</Button> : null}
         <div className={styles.player} aria-label="Live TV player">
@@ -181,19 +194,19 @@ export function LiveTVSection() {
             <label htmlFor="tv-search" className="sr-only">Filter channels</label>
             <div className={styles.search}>
               <Search aria-hidden="true" size={20} />
-              <input id="tv-search" type="search" placeholder="Filter channels" value={query} onChange={event => {setQuery(event.target.value); setPageSize(100);}} />
+              <input id="tv-search" type="search" placeholder="Filter channels" value={query} onChange={event => {setQuery(event.target.value); setPage(0);}} />
             </div>
             <label className={styles.favoriteFilter}>
-              <input type="checkbox" checked={favoritesOnly} onChange={event => {setFavoritesOnly(event.target.checked); setPageSize(100);}} /> Favorite channels
+              <input type="checkbox" checked={favoritesOnly} onChange={event => {setFavoritesOnly(event.target.checked); setPage(0);}} /> Favorite channels
             </label>
             <label htmlFor="tv-category" className="sr-only">Channel category</label>
-            <select id="tv-category" value={category} onChange={event => {setCategory(event.target.value); setPageSize(100);}}>
+            <select id="tv-category" value={category} onChange={event => {setCategory(event.target.value); setPage(0);}}>
               <option value="">All channels</option>
               {categories.map(group => <option key={group} value={group}>{group}</option>)}
             </select>
-            <p className={styles.count}>{filtered.length.toLocaleString()} channels</p>
-            <div className={styles.channelList}>
-              {filtered.slice(0, pageSize).map(channel => (
+            <p className={styles.count}>{catalog.count.toLocaleString()} channels</p>
+            <div ref={listRef} className={styles.channelList}>
+              {channels.map(channel => (
                 <div key={channel.url} className={`${styles.channelRow} ${selected?.url === channel.url ? styles.active : ""}`}>
                   <button type="button" className={styles.channelPlay} onClick={() => choose(channel)} aria-pressed={selected?.url === channel.url}>
                     {/^https?:\/\//i.test(channel.logo) ? (
@@ -206,9 +219,13 @@ export function LiveTVSection() {
                   <button type="button" className={styles.favoriteButton} aria-label={`${favorites.has(channel.url) ? "Remove from" : "Add to"} favorites: ${channel.name}`} aria-pressed={favorites.has(channel.url)} onClick={() => toggleFavorite(channel)}><Star size={20} aria-hidden="true" fill={favorites.has(channel.url) ? "currentColor" : "none"} /></button>
                 </div>
               ))}
-              {!loading && !filtered.length ? <p className={styles.empty}>{directoryError ? "Retry loading the directory to browse channels." : favoritesOnly ? "No favorite channels match. Star a channel to save it here." : "No channels match your filters."}</p> : null}
+              {!loading && !channels.length ? <p className={styles.empty}>{directoryError ? "Retry loading the directory to browse channels." : favoritesOnly ? "No favorite channels match. Star a channel to save it here." : "No channels match your filters."}</p> : null}
             </div>
-            {filtered.length > pageSize ? <Button type="button" variant="outline" className={styles.loadMore} onClick={() => setPageSize(size => size + 100)}><ChevronDown aria-hidden="true" /> Load more channels</Button> : null}
+            <div className={styles.pagination}>
+              {catalog.page > 0 ? <Button type="button" variant="outline" disabled={loading} onClick={() => setPage(Math.max(0, catalog.page - 1))}>Previous</Button> : null}
+              {(catalog.page + 1) * 100 < catalog.count ? <Button type="button" variant="outline" disabled={loading} onClick={() => setPage(catalog.page + 1)}><ChevronDown aria-hidden="true" /> Next channels</Button> : null}
+            </div>
+            {catalog.count > 0 ? <p className={styles.count}>Showing {catalog.page * 100 + 1}–{catalog.page * 100 + channels.length} of {catalog.count.toLocaleString()}</p> : null}
           </aside>
           <div className={styles.videoPane}>
             <div className={styles.videoFrame}>

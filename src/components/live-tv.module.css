@@ -40,3 +40,5 @@
 @media(min-width:1280px){.section{padding:112px 0}}
 @media(max-width:1100px){.caption{flex-wrap:wrap}.playbackActions{flex:1}}
 @media(max-width:900px){.section{padding:64px 0}.heading{align-items:start;flex-direction:column;gap:8px}.player{grid-template-columns:minmax(0,1fr)}.videoPane{grid-row:1;padding:16px}.sidebar{grid-row:2;padding:16px;border-right:0;border-top:1px solid hsl(var(--border))}.channelList{max-height:50dvh}.caption{gap:12px}.playbackActions{width:100%}.playbackActions button{flex:1;white-space:normal}.videoPlaceholder{inset:0 0 40px;gap:8px}.videoPlaceholder svg{width:32px;height:32px}.heading h2{overflow-wrap:anywhere}}
+
+.pagination{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}.pagination button{flex:1;min-height:44px;white-space:normal}

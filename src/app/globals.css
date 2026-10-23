@@ -219,3 +219,15 @@
 .animate-shimmer {
   animation: shimmer 3s ease-in-out infinite;
 }
+/* Keep the same palette/type while avoiding expensive continuous mobile paints. */
+@media (max-width: 767px) {
+  .landing-shell .ambient-glow { display: none; }
+  .landing-shell header, .landing-shell .glass, .landing-shell [class*="backdrop-blur"] { backdrop-filter: none; }
+  .landing-shell header { background-color: hsl(var(--background)); }
+  .landing-shell .animate-pulse, .landing-shell .animate-bounce, .landing-shell .animate-shimmer,
+  .landing-shell [class*="animate-[shimmer"] { animation: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .landing-shell .ambient-glow { display: none; }
+  .landing-shell *, .landing-shell *::before, .landing-shell *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
