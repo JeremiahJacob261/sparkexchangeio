@@ -21,7 +21,18 @@ export default function Home() {
       <VisitTracker />
       <Header />
 
-      {/* Hero Section */}
+      {/* Live TV leads the landing page below the fixed navigation. */}
+      <div className="pt-16 md:pt-20">
+        <DeferredLandingSection kind="tv" />
+      </div>
+
+      {/* How It Works Section */}
+      <HowItWorksSection />
+
+      {/* Video Section */}
+      <VideoSection />
+
+      {/* Crypto Exchange Section */}
       <section id="exchange" className="relative pt-24 md:pt-32 pb-20 overflow-hidden">
         {/* Background Effects */}
         <div className="absolute inset-0 overflow-hidden">
@@ -44,11 +55,11 @@ export default function Home() {
               </div>
 
               {/* Headline */}
-              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 leading-tight animate-fade-in-up animation-delay-200">
+              <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 leading-tight animate-fade-in-up animation-delay-200">
                 <span className="gradient-text">Decentralized</span>
                 <br />
                 Crypto Exchange
-              </h1>
+              </h2>
 
               {/* Subheadline */}
               <p className="text-lg md:text-xl text-muted-foreground mb-8 max-w-xl mx-auto lg:mx-0 animate-fade-in-up animation-delay-400">
@@ -102,15 +113,6 @@ export default function Home() {
           </div>
         </div>
       </section>
-
-      {/* How It Works Section */}
-      <HowItWorksSection />
-
-      {/* Video Section */}
-      <VideoSection />
-
-      {/* Live TV Section */}
-      <DeferredLandingSection kind="tv" />
 
       {/* Speedtest Section */}
       <DeferredLandingSection kind="speedtest" />

@@ -29,7 +29,7 @@ The radius foundation is `--radius: 0.75rem` (12px); theme radii are 8px, 10px, 
 
 ## Live TV addition
 
-`LiveTVSection` sits after the guide video and before the speed test. Its charcoal card, gold emphasis, Inter typography, native form controls, shared Button component and Lucide icons inherit the landing page. It uses a 16px outer shell and 12px video corners; search, select and channel rows use 10px corners. It adds no illustration or embedded provider webpage.
+`LiveTVSection` leads the homepage below the fixed header. The crypto exchange occupies its former position after the guide video and before the speed test. Live TV owns the page h1; the exchange title is an h2 with its existing size preserved. Its charcoal card, gold emphasis, Inter typography, native form controls, shared Button component and Lucide icons inherit the landing page. It uses a 16px outer shell and 12px video corners; search, select and channel rows use 10px corners. It adds no illustration or embedded provider webpage.
 
 Above 900px, a 250–310px channel browser sits left of the flexible video pane. Both panes have 24px padding. The 16:9 video uses `object-fit: contain`. Search, favorites, category, count, bounded channel list and Previous/Next channels controls form the browser; the video pane carries selected-channel text, Full screen, Stop and playback status. The list is bounded to 460px with internal scrolling.
 

@@ -5,7 +5,7 @@ const TV = dynamic(() => import('./live-tv-section').then(module => module.LiveT
 const Speedtest = dynamic(() => import('./speedtest-section').then(module => module.SpeedtestSection), {loading: () => <Placeholder kind="speedtest" />});
 
 function Placeholder({kind, observeRef}: {kind: 'tv' | 'speedtest'; observeRef?: Ref<HTMLDivElement>}) {
-  return <div ref={observeRef} id={kind === 'tv' ? 'live-tv' : 'speedtest'} style={{minHeight: kind === 'tv' ? 960 : 900, scrollMarginTop: 88}} aria-label={kind === 'tv' ? 'Live TV' : 'Internet speed test'} />;
+  return <section ref={observeRef} id={kind === 'tv' ? 'live-tv' : 'speedtest'} style={{minHeight: kind === 'tv' ? 960 : 900, scrollMarginTop: 88}} aria-label={kind === 'tv' ? 'Live TV' : 'Internet speed test'} />;
 }
 
 export function DeferredLandingSection({kind}: {kind: 'tv' | 'speedtest'}) {
