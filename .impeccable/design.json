@@ -86,7 +86,7 @@
     "mobileDecoration": { "maxWidthPx": 767, "ambientGlows": "hidden", "backdropBlur": "removed", "headerBackground": "existing background token", "continuousAnimationsStopped": ["pulse", "bounce", "shimmer"] },
     "reducedMotion": { "ambientGlows": "hidden", "landingAnimationsAndTransitions": "disabled", "scrollBehavior": "auto" },
     "speedReadout": { "animationConditions": ["test running", "section visible", "tab visible"], "maxReactUpdatesPerSecond": 20, "hiddenTab": "abort test with restart message", "complete": "settled measured download result" },
-    "hls": { "capLevelToPlayerSize": true, "maxBufferLengthSeconds": 15, "maxMaxBufferLengthSeconds": 30, "backBufferLengthSeconds": 10 },
+    "hls": { "capLevelToPlayerSize": true, "maxBufferLengthSeconds": 28, "maxMaxBufferLengthSeconds": 30, "backBufferLengthSeconds": 10 },
     "tokensAndBrandingChanged": false
   },
   "review": {

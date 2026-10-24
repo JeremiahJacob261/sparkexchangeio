@@ -140,7 +140,7 @@ export function LiveTVSection() {
           const {default: HlsPlayer} = await import("hls.js");
           if (!current(epoch)) return;
           if (!HlsPlayer.isSupported()) { setPlaybackStatus("This browser cannot play this stream format. Try another channel or browser."); return; }
-          hls = new HlsPlayer({capLevelToPlayerSize: true, maxBufferLength: 15, maxMaxBufferLength: 30, backBufferLength: 10, manifestLoadingTimeOut: 15000, fragLoadingTimeOut: 20000, manifestLoadingMaxRetry: 0, levelLoadingMaxRetry: 1, fragLoadingMaxRetry: 1});
+          hls = new HlsPlayer({capLevelToPlayerSize: true, maxBufferLength: 28, maxMaxBufferLength: 30, backBufferLength: 10, manifestLoadingTimeOut: 15000, fragLoadingTimeOut: 20000, manifestLoadingMaxRetry: 0, levelLoadingMaxRetry: 1, fragLoadingMaxRetry: 1});
           hls.on(HlsPlayer.Events.MANIFEST_PARSED, start);
           hls.on(HlsPlayer.Events.ERROR, (_, data) => {
             if (!current(epoch) || !data.fatal) return;
