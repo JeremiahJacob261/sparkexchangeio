@@ -75,6 +75,7 @@
     "states": ["directory loading", "directory error and retry", "empty filters or favorites", "connecting", "playing", "stopped", "unavailable public feed"],
     "accessibilityObservedInSource": ["named controls", "pressed states", "status regions", "visible focus", "44px action targets", "reduced-motion-aware selection scrolling"],
     "autoplayOnEntry": false,
+    "nearSectionAutoplay": {"distancePixels": 120, "muted": true, "oncePerVisit": true, "respectManualChoice": true},
     "pagination": { "pageSize": 100, "mode": "replace", "searchScope": "full server-side catalog", "listScrollResetsOnPageResponse": true, "selectedPlaybackIndependentOfBrowsing": true },
     "favoritesTransport": { "storage": "browser-local with session fallback", "filterMethod": "POST", "responseCacheControl": "private, no-store" }
   },

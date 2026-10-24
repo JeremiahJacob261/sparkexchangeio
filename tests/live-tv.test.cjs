@@ -100,3 +100,27 @@ test('running gauge pauses offscreen and cancels a test when the tab becomes hid
   assert.equal(callbacks.size,0);assert.match(document.body.textContent,/tab was hidden/);assert(![...document.querySelectorAll('button')].some(b=>b.textContent.trim()==='Stop Test'));
  }finally{await act(async()=>root.unmount());delete document.hidden;global.fetch=savedFetch;}
 });
+
+test('autoplay waits for proximity and a visible tab, starts muted once, and respects Stop',async()=>{
+ instances=[];Object.defineProperty(document,'hidden',{configurable:true,value:false});
+ const root=createRoot(document.getElementById('root'));
+ try{
+  await act(async()=>root.render(React.createElement(LiveTVSection)));assert.equal(instances.length,0);
+  await act(async()=>{intersect([{isIntersecting:true}]);await tick();});
+  assert.equal(instances.length,0,'Directory preload does not start media');
+  const autoplayObserver=intersect;
+  Object.defineProperty(document,'hidden',{configurable:true,value:true});
+  await act(async()=>autoplayObserver([{isIntersecting:true}]));assert.equal(instances.length,0,'Hidden tab must not autoplay');
+  Object.defineProperty(document,'hidden',{configurable:true,value:false});
+  await act(async()=>{document.dispatchEvent(new w.Event('visibilitychange'));await tick();});
+  assert.equal(instances.length,1);assert.equal(document.querySelector('video').muted,true);
+  await click([...document.querySelectorAll('button')].find(b=>/Enable sound/.test(b.textContent)));assert.equal(document.querySelector('video').muted,false);
+  await click([...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='Stop'));
+  await act(async()=>{autoplayObserver([{isIntersecting:true}]);await tick();});assert.equal(instances.length,1,'Stop must not be undone by autoplay');
+ }finally{await act(async()=>root.unmount());delete document.hidden;}
+});
+
+test('manual channel selection before automatic start wins over later proximity callbacks',async()=>{
+ instances=[];Object.defineProperty(document,'hidden',{configurable:true,value:false});const root=createRoot(document.getElementById('root'));
+ try{await act(async()=>root.render(React.createElement(LiveTVSection)));await act(async()=>{intersect([{isIntersecting:true}]);await tick();});const pendingAuto=intersect;await click(channelButtons()[1]);const url=instances.at(-1).url;await act(async()=>{pendingAuto([{isIntersecting:true}]);await tick();});assert.equal(instances.length,1);assert.equal(instances[0].url,url);}finally{await act(async()=>root.unmount());delete document.hidden;}
+});

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { ChevronDown, Maximize, Search, Square, Star, Tv } from "lucide-react";
+import { ChevronDown, Maximize, Search, Square, Star, Tv, Volume2 } from "lucide-react";
 import type Hls from "hls.js";
 import { Button } from "@/components/ui/button";
 import { tvRelayURL, tvStationKey, type TVChannel } from "@/lib/tv-playlist";
@@ -22,6 +22,9 @@ export function LiveTVSection() {
   const sectionRef = useRef<HTMLElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const autoStarted = useRef(false);
+  const userChosePlayback = useRef(false);
+  const [muted, setMuted] = useState(false);
   const requestRef = useRef<AbortController | null>(null);
   const [channels, setChannels] = useState<TVChannel[]>([]);
   const [loading, setLoading] = useState(true);
@@ -82,6 +85,47 @@ export function LiveTVSection() {
     if (directoryVisible) void loadChannels();
     return () => requestRef.current?.abort();
   }, [directoryVisible, loadChannels]);
+
+  // Preload the directory at 300px; start media only within 120px of the section.
+  useEffect(() => {
+    if (!channels.length || autoStarted.current || userChosePlayback.current) return;
+    const section = sectionRef.current;
+    if (!section) return;
+    let near = false;
+    let observer: IntersectionObserver | undefined;
+    const attempt = () => {
+      if (!near || document.hidden || autoStarted.current || userChosePlayback.current) return;
+      autoStarted.current = true;
+      if (videoRef.current) videoRef.current.muted = true;
+      setMuted(true);
+      setSelected({...channels[0]});
+      setPlaybackStatus("Starting " + channels[0].name + " with sound muted…");
+      observer?.disconnect();
+      window.removeEventListener("scroll", checkPosition);
+      window.removeEventListener("resize", checkPosition);
+    };
+    const checkPosition = () => {
+      const rect = section.getBoundingClientRect();
+      near = rect.top <= window.innerHeight + 120 && rect.bottom >= 0;
+      attempt();
+    };
+    if ("IntersectionObserver" in window) {
+      observer = new IntersectionObserver(entries => { near = entries.some(entry => entry.isIntersecting); attempt(); }, {rootMargin: "120px"});
+      observer.observe(section);
+    } else {
+      window.addEventListener("scroll", checkPosition, {passive: true});
+      window.addEventListener("resize", checkPosition);
+      checkPosition();
+    }
+    const onVisible = () => { if (observer) attempt(); else checkPosition(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("scroll", checkPosition);
+      window.removeEventListener("resize", checkPosition);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [channels]);
 
   const categories = catalog.categories;
 
@@ -156,6 +200,7 @@ export function LiveTVSection() {
   }, [selected]);
 
   function choose(channel: TVChannel) {
+    userChosePlayback.current = true;
     // A fresh object permits retrying the currently selected channel.
     setSelected({...channel}); setPlaybackStatus("Connecting to " + channel.name + "…");
     if (window.matchMedia("(max-width: 900px)").matches) videoRef.current?.scrollIntoView({block: "nearest", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"});
@@ -229,14 +274,15 @@ export function LiveTVSection() {
           </aside>
           <div className={styles.videoPane}>
             <div className={styles.videoFrame}>
-              <video ref={videoRef} controls playsInline preload="none" aria-label={selected ? `Live TV: ${selected.name}` : "Live TV video player"} />
+              <video ref={videoRef} onVolumeChange={event => setMuted(event.currentTarget.muted)} controls playsInline preload="none" aria-label={selected ? `Live TV: ${selected.name}` : "Live TV video player"} />
               {!selected ? <div className={styles.videoPlaceholder} aria-hidden="true"><Tv size={44} /><span>Select a channel to watch</span></div> : null}
             </div>
             <div className={styles.caption}>
               <p>{selected?.name || "Select a channel to watch"}</p>
               <div className={styles.playbackActions}>
+                {muted ? <Button type="button" variant="outline" className="min-h-11" onClick={() => {if (videoRef.current) videoRef.current.muted = false; setMuted(false);}}><Volume2 aria-hidden="true" /> Enable sound</Button> : null}
                 <Button type="button" variant="outline" className="min-h-11" onClick={() => void fullScreen()}><Maximize aria-hidden="true" /> Full screen</Button>
-                <Button type="button" className="min-h-11 bg-primary text-black hover:bg-primary/90" disabled={!selected} onClick={() => {setSelected(null); setPlaybackStatus("Playback stopped. Select a channel to watch.");}}><Square aria-hidden="true" /> Stop</Button>
+                <Button type="button" className="min-h-11 bg-primary text-black hover:bg-primary/90" disabled={!selected} onClick={() => {userChosePlayback.current = true; setSelected(null); setPlaybackStatus("Playback stopped. Select a channel to watch.");}}><Square aria-hidden="true" /> Stop</Button>
               </div>
             </div>
             <p className={styles.playbackStatus} role="status">{playbackStatus}</p>
