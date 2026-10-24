@@ -72,7 +72,7 @@ export function LiveTVSection() {
     // Keep the exchange landing page light: fetch the directory near the TV section.
     const section = sectionRef.current;
     let observer: IntersectionObserver | undefined;
-    if (section && "IntersectionObserver" in window) {
+    if (section && typeof IntersectionObserver !== "undefined") {
       observer = new IntersectionObserver(entries => {
         if (entries.some(entry => entry.isIntersecting)) { observer?.disconnect(); setDirectoryVisible(true); }
       }, {rootMargin: "300px"});
@@ -109,7 +109,7 @@ export function LiveTVSection() {
       near = rect.top <= window.innerHeight + 120 && rect.bottom >= 0;
       attempt();
     };
-    if ("IntersectionObserver" in window) {
+    if (typeof IntersectionObserver !== "undefined") {
       observer = new IntersectionObserver(entries => { near = entries.some(entry => entry.isIntersecting); attempt(); }, {rootMargin: "120px"});
       observer.observe(section);
     } else {
