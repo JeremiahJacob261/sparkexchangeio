@@ -382,3 +382,13 @@ All endpoints return consistent error responses:
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new).
 
 Check out the [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Landing-page Live TV
+
+The `#live-tv` section uses SparkExchange's native video player with IPTV-org's public category playlist. It appears below the existing swap-guide video and is linked from desktop/mobile navigation. The TV and speed-test code load near their sections; HLS playback code loads on selection or once the TV section is within 120px of the viewport; its first channel starts muted automatically. The public catalog is parsed and searched on the server, with 100 channels per response and a bounded browser list. Visitors can search all channels, filter by category or favorites, page through results, stop playback and enter full screen.
+
+`/api/tv-channels` pages/searches the existing public IPTV service's directory (`q`, `category`, `page`, or `station` query parameters; favorites use a private POST list), while `/api/stream` streams its media relay responses and preserves relative HLS child paths. Both depend on `https://free-iptv-player-sigma.vercel.app`; exchange cookies, authorization and API keys are never forwarded. Direct HTTPS playback is attempted first when provider metadata allows it. Public feed availability, codecs and region restrictions remain provider-dependent.
+
+Run `npm run test:tv` for parser, native-player lifecycle, search/category/favorites, retry and relay-isolation checks. `npm run build` also requires the existing application's Supabase and Resend configuration; the TV addition introduces no new credentials or database changes.
+
+Performance: the static landing shell renders on the server. The speed-test gauge schedules no animation while idle/off-screen and stops hidden-tab tests. Mobile/reduced-motion rules suppress costly ambient effects without changing the palette or typography.

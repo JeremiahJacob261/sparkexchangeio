@@ -19,6 +19,11 @@ const SPEED_TEST_CONFIG = {
     pingCount: 5,
 };
 
+export function speedDisplayValue(speed: number, phase: string, download: number) {
+    if (phase === "complete") return Math.max(0, download).toString();
+    return speed > 0 ? Math.max(0, speed).toFixed(1) : "0";
+}
+
 export function SpeedtestSection() {
     const [isRunning, setIsRunning] = useState(false);
     const [phase, setPhase] = useState<"idle" | "ping" | "download" | "upload" | "complete">("idle");
@@ -39,50 +44,48 @@ export function SpeedtestSection() {
     const animatedSpeedRef = useRef(0);
     const animationFrameRef = useRef<number | null>(null);
     const lastTimeRef = useRef(0);
+    const sectionRef = useRef<HTMLElement>(null);
 
-    // Smooth animation loop for the speedometer - runs continuously
+    // No animation work while idle, off-screen, or in a hidden tab.
     useEffect(() => {
-        const animate = (currentTime: number) => {
-            if (lastTimeRef.current === 0) {
-                lastTimeRef.current = currentTime;
+        if (!isRunning) return;
+        let visible = !("IntersectionObserver" in window);
+        let lastPaint = 0;
+        const cancel = () => {
+            if (animationFrameRef.current !== null) cancelAnimationFrame(animationFrameRef.current);
+            animationFrameRef.current = null;
+            lastTimeRef.current = 0;
+        };
+        const animate = (time: number) => {
+            if (!isRunningRef.current || !visible || document.hidden) { cancel(); return; }
+            const delta = Math.min((time - (lastTimeRef.current || time)) / 1000, 0.1);
+            lastTimeRef.current = time;
+            const target = Math.max(0, targetSpeedRef.current);
+            animatedSpeedRef.current += (target - animatedSpeedRef.current) * Math.min(1, delta * 10);
+            if (time - lastPaint >= 50) {
+                lastPaint = time;
+                const rounded = Math.round(animatedSpeedRef.current * 10) / 10;
+                setDisplaySpeed(previous => previous === rounded ? previous : rounded);
             }
-
-            const deltaTime = Math.min((currentTime - lastTimeRef.current) / 1000, 0.1); // Cap delta to prevent jumps
-            lastTimeRef.current = currentTime;
-
-            // Smooth interpolation towards target speed
-            const target = Math.max(0, targetSpeedRef.current); // Ensure non-negative
-            const current = animatedSpeedRef.current;
-            const lerpFactor = Math.min(1, deltaTime * 10);
-
-            animatedSpeedRef.current = current + (target - current) * lerpFactor;
-
-            // Clamp to reasonable bounds
-            if (animatedSpeedRef.current < 0.01) animatedSpeedRef.current = 0;
-            if (Math.abs(animatedSpeedRef.current - target) < 0.1) {
-                animatedSpeedRef.current = target;
-            }
-
-            // Update display state at ~30fps to reduce re-renders
-            const roundedSpeed = Math.round(animatedSpeedRef.current * 10) / 10;
-            setDisplaySpeed(prev => {
-                if (Math.abs(prev - roundedSpeed) > 0.05) {
-                    return roundedSpeed;
-                }
-                return prev;
-            });
-
             animationFrameRef.current = requestAnimationFrame(animate);
         };
-
-        animationFrameRef.current = requestAnimationFrame(animate);
-
-        return () => {
-            if (animationFrameRef.current) {
-                cancelAnimationFrame(animationFrameRef.current);
-            }
+        const sync = () => {
+            cancel();
+            if (document.hidden) {
+                isRunningRef.current = false;
+                abortControllerRef.current?.abort();
+                setIsRunning(false); setPhase("idle"); setDisplaySpeed(0);
+                setError("Test stopped while this tab was hidden. Start again to measure accurately.");
+            } else if (visible && isRunningRef.current) animationFrameRef.current = requestAnimationFrame(animate);
         };
-    }, []); // Empty dependency array - runs once
+        let observer: IntersectionObserver | undefined;
+        if (sectionRef.current && "IntersectionObserver" in window) {
+            observer = new IntersectionObserver(entries => { visible = entries.some(entry => entry.isIntersecting); sync(); });
+            observer.observe(sectionRef.current);
+        } else sync();
+        document.addEventListener("visibilitychange", sync);
+        return () => { cancel(); observer?.disconnect(); document.removeEventListener("visibilitychange", sync); };
+    }, [isRunning]);
 
     // Speed to angle conversion (logarithmic scale like speedtest.net)
     const speedToAngle = useCallback((speed: number) => {
@@ -223,9 +226,10 @@ export function SpeedtestSection() {
         const chunkSize = 1000000; // 1MB chunks
         const data = new Uint8Array(chunkSize);
 
-        for (let i = 0; i < data.length; i++) {
-            data[i] = Math.floor(Math.random() * 256);
-        }
+        // Fill in native 64 KB batches instead of one million JS random calls.
+        if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+            for (let offset = 0; offset < data.length; offset += 65536) crypto.getRandomValues(data.subarray(offset, Math.min(offset + 65536, data.length)));
+        } else data.fill(127);
 
         const uploadChunk = async () => {
             while (isRunningRef.current) {
@@ -316,6 +320,7 @@ export function SpeedtestSection() {
             // Phase 3: Upload test
             setPhase("upload");
             const uploadSpeed = await measureUpload();
+            if (!isRunningRef.current) return;
             setResults(prev => ({ ...prev, upload: uploadSpeed }));
 
             setPhase("complete");
@@ -329,6 +334,8 @@ export function SpeedtestSection() {
             setIsRunning(false);
             isRunningRef.current = false;
             targetSpeedRef.current = 0;
+            animatedSpeedRef.current = 0;
+            setDisplaySpeed(0);
         }
     };
 
@@ -363,7 +370,7 @@ export function SpeedtestSection() {
 
     // Memoized SpeedGraph component
     const SpeedGraph = useMemo(() => {
-        return ({ data, color }: { data: number[]; color: string }) => {
+        return function SpeedGraphView({ data, color }: { data: number[]; color: string }) {
             if (data.length === 0) {
                 return (
                     <svg className="w-full h-16" viewBox="0 0 100 100" preserveAspectRatio="none">
@@ -407,22 +414,14 @@ export function SpeedtestSection() {
     }, []);
 
     // Safe display value
-    const displayValue = useMemo(() => {
-        if (displaySpeed > 0) {
-            return Math.max(0, displaySpeed).toFixed(1);
-        }
-        if (phase === "complete") {
-            return Math.max(0, results.download).toString();
-        }
-        return "0";
-    }, [displaySpeed, phase, results.download]);
+    const displayValue = useMemo(() => speedDisplayValue(displaySpeed, phase, results.download), [displaySpeed, phase, results.download]);
 
     return (
-        <section id="speedtest" className="relative py-20 overflow-hidden">
+        <section ref={sectionRef} id="speedtest" className="relative py-20 overflow-hidden">
             {/* Background Effects */}
             <div className="absolute inset-0 overflow-hidden">
-                <div className="absolute top-1/4 left-0 w-[400px] h-[400px] bg-cyan-500/10 rounded-full blur-[100px] animate-pulse"></div>
-                <div className="absolute bottom-1/4 right-0 w-[350px] h-[350px] bg-blue-500/10 rounded-full blur-[100px] animate-pulse"></div>
+                <div className="ambient-glow absolute top-1/4 left-0 w-[400px] h-[400px] bg-cyan-500/10 rounded-full blur-[100px] animate-pulse"></div>
+                <div className="ambient-glow absolute bottom-1/4 right-0 w-[350px] h-[350px] bg-blue-500/10 rounded-full blur-[100px] animate-pulse"></div>
             </div>
 
             <div className="container mx-auto px-4 relative z-10">
