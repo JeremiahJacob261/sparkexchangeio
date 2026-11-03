@@ -2,7 +2,7 @@ import { Resend } from "resend";
 import { NextRequest, NextResponse } from "next/server";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
-const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL || "sparkexchangedex@gmail.com";
+const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL || "plasma1337x@gmail.com";
 
 export async function POST(request: NextRequest) {
     try {
