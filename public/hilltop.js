@@ -50,7 +50,7 @@
    document.addEventListener('visibilitychange',()=>{if(!document.hidden&&pending&&!dialog.open)showBreak();});
    schedule();
  }
- if(banner&&!['/','/iptv-player','/x','/twitch'].includes(path)){
+ if(banner&&!['/','/iptv','/iptv-player','/x','/twitch'].includes(path)){
   const content=document.querySelector('.ct-inner-content, main, article')||document.querySelector('header');
   if(content){
    const paragraphs=[...content.querySelectorAll('p')].filter(p=>p.textContent.trim().length>80);

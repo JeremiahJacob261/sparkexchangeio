@@ -728,7 +728,7 @@ export function ExchangeWidget({ compact = false }: { compact?: boolean } = {}) 
 
                     {/* Rate Info */}
                     <div className={`flex items-center gap-4 text-xs font-medium ${compact ? "mt-3 mb-5" : "mt-4 mb-8"}`}>
-                        <span className="text-green-500 underline decoration-dotted underline-offset-2 cursor-help">No extra fees</span>
+                        <span className="text-muted-foreground">Estimated amount includes a service fee.</span>
                         {fromCurrency && toCurrency && toAmount && (
                             <span className="text-muted-foreground">
                                 Estimated rate: 1 {fromCurrency.ticker.toUpperCase()} ≈ {(parseFloat(toAmount) / parseFloat(fromAmount || '1')).toFixed(6)} {toCurrency.ticker.toUpperCase()}

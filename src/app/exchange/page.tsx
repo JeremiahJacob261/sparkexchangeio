@@ -21,22 +21,17 @@ export default function Home() {
       <VisitTracker />
       <Header />
 
-      {/* Live TV leads the landing page below the fixed navigation. */}
-      <div className="pt-16 md:pt-20">
-        <DeferredLandingSection kind="tv" />
-      </div>
-
       {/* Crypto Exchange Section */}
-      <section id="exchange" className="relative pt-24 md:pt-32 pb-20 overflow-hidden">
+      <section id="exchange" className="relative pt-32 md:pt-40 pb-20 overflow-hidden">
         {/* Background Effects */}
         <div className="absolute inset-0 overflow-hidden">
-          <div className="ambient-glow absolute top-0 left-1/4 w-[500px] h-[500px] bg-yellow-500/20 rounded-full blur-[120px]"></div>
-          <div className="ambient-glow absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-amber-500/15 rounded-full blur-[100px]"></div>
+          <div className="ambient-glow absolute top-0 left-1/4 w-[500px] h-[500px] bg-[#693695]/20 rounded-full blur-[120px]"></div>
+          <div className="ambient-glow absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-[#693695]/15 rounded-full blur-[100px]"></div>
           <div className="ambient-glow absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-primary/5 rounded-full blur-[150px]"></div>
         </div>
 
         {/* Grid Pattern Overlay */}
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(234,179,8,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(234,179,8,0.03)_1px,transparent_1px)] bg-[size:50px_50px]"></div>
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(105,54,149,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(105,54,149,0.03)_1px,transparent_1px)] bg-[size:50px_50px]"></div>
 
         <div className="container mx-auto px-4 relative z-10">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center min-h-[70vh]">
@@ -67,7 +62,7 @@ export default function Home() {
                     <ArrowRight className="w-5 h-5" />
                   </Link>
                 </Button>
-                <Button variant="outline" size="xl" className="gap-2 bg-green-400 text-green-900 hover:bg-green-600" asChild>
+                <Button variant="outline" size="xl" className="gap-2 border-[#a791b9] text-white hover:bg-[#34243f]" asChild>
                   <Link href="#video-section">
                     <Play className="w-5 h-5" />
                     Watch Video
@@ -107,6 +102,9 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* Preserve the existing Live TV section below the exchange. */}
+      <DeferredLandingSection kind="tv" />
 
       {/* How It Works Section */}
       <HowItWorksSection />
