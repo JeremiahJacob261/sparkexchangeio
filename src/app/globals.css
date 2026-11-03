@@ -231,3 +231,10 @@
   .landing-shell .ambient-glow { display: none; }
   .landing-shell *, .landing-shell *::before, .landing-shell *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
+
+/* Keep anchor destinations visible below the fixed navigation. */
+html { scroll-padding-top: 5.5rem; }
+@media (prefers-reduced-motion: no-preference) {
+  html { scroll-behavior: smooth; }
+}
+
