@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { ExchangeWidget } from "@/components/exchange-widget";
+import "./embed.css";
 
 export default function EmbedPage() {
   const frame = useRef<HTMLElement>(null);
