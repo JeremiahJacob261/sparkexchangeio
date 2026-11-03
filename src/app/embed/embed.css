@@ -1,0 +1,15 @@
+@media (max-width: 290px) {
+  .spark-embed-amount-row {
+    flex-wrap: wrap;
+  }
+
+  .spark-embed-amount-row > :first-child {
+    flex: 1 1 100%;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .spark-embed-amount-row > :last-child {
+    margin-left: auto;
+  }
+}

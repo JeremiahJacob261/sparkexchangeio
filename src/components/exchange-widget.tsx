@@ -50,7 +50,7 @@ function useDebounce<T>(value: T, delay: number): T {
     return debouncedValue;
 }
 
-export function ExchangeWidget() {
+export function ExchangeWidget({ compact = false }: { compact?: boolean } = {}) {
     // State
     const [currencies, setCurrencies] = useState<Currency[]>([]);
     const [isLoadingCurrencies, setIsLoadingCurrencies] = useState(true);
@@ -371,15 +371,30 @@ export function ExchangeWidget() {
             if (data.success) {
                 setTxResult(data.exchange);
 
-                const txHistory = JSON.parse(localStorage.getItem("txHistory") || "[]");
-                txHistory.push({
-                    id: data.exchange.id,
-                    date: new Date().toISOString(),
-                    from: fromCurrency.ticker,
-                    to: toCurrency.ticker,
-                    amount: fromAmount
-                });
-                localStorage.setItem("txHistory", JSON.stringify(txHistory));
+                try {
+                    const txHistory = JSON.parse(localStorage.getItem("txHistory") || "[]");
+                    txHistory.push({
+                        id: data.exchange.id,
+                        date: new Date().toISOString(),
+                        from: fromCurrency.ticker,
+                        to: toCurrency.ticker,
+                        amount: fromAmount
+                    });
+                    localStorage.setItem("txHistory", JSON.stringify(txHistory));
+                } catch {
+                    // Third-party storage can be disabled inside the PlasmaX embed.
+                }
+
+                if (window.parent !== window) {
+                    try {
+                        const parentOrigin = new URL(document.referrer).origin;
+                        if (["https://plasmax.io", "https://www.plasmax.io"].includes(parentOrigin)) {
+                            window.parent.postMessage({ type: "sparkexchange:exchange-created", id: data.exchange.id }, parentOrigin);
+                        }
+                    } catch {
+                        // The exchange remains available in the embedded success view.
+                    }
+                }
 
                 // Success Dialog
                 setDialogConfig({
@@ -561,9 +576,9 @@ export function ExchangeWidget() {
     // Main Swap View
     return (
         <div className="max-w-3xl mx-auto w-full">
-            <div className="glass rounded-2xl p-1 shadow-2xl overflow-hidden ">
-                <div className="bg-card/50 backdrop-blur-xl p-6 md:p-8 rounded-2xl border border-white/5">
-                    <h3 className="text-xl font-bold text-center mb-8 text-white">Exchange Crypto</h3>
+            <div className={`glass rounded-2xl ${compact ? "p-0" : "p-1"} shadow-2xl overflow-hidden`}>
+                <div className={`bg-card/50 backdrop-blur-xl ${compact ? "p-3 md:p-5" : "p-6 md:p-8"} rounded-2xl border border-white/5`}>
+                    <h3 className={`text-xl font-bold text-center ${compact ? "mb-5" : "mb-8"} text-white`}>Exchange Crypto</h3>
 
                     {estimateError && (
                         <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-3 text-sm text-red-500">
@@ -572,16 +587,16 @@ export function ExchangeWidget() {
                         </div>
                     )}
 
-                    <div className="flex flex-col md:flex-row gap-4 relative">
+                    <div className={`flex flex-col md:flex-row ${compact ? "gap-3" : "gap-4"} relative`}>
                         {/* You Send */}
-                        <div className="flex-1 bg-black/20 rounded-xl border border-white/5 p-4 hover:border-primary/30 transition-colors focus-within:border-primary/50">
+                        <div className={`flex-1 bg-black/20 rounded-xl border border-white/5 ${compact ? "p-3" : "p-4"} hover:border-primary/30 transition-colors focus-within:border-primary/50`}>
                             <label className="text-sm text-muted-foreground mb-2 block">You send</label>
-                            <div className="flex items-center gap-4">
+                            <div className={`flex items-center ${compact ? "gap-2 spark-embed-amount-row" : "gap-4"}`}>
                                 <Input
                                     type="number"
                                     value={fromAmount}
                                     onChange={(e) => setFromAmount(e.target.value)}
-                                    className="text-3xl font-bold bg-transparent border-0 h-auto p-0 focus-visible:ring-0 shadow-none text-white placeholder:text-gray-700"
+                                    className={`${compact ? "text-xl" : "text-3xl"} min-w-0 font-bold bg-transparent border-0 h-auto p-0 focus-visible:ring-0 shadow-none text-white placeholder:text-gray-700`}
                                     placeholder="0.00"
                                 />
                                 <div className="relative shrink-0">
@@ -651,16 +666,16 @@ export function ExchangeWidget() {
                         </div>
 
                         {/* You Get */}
-                        <div className="flex-1 bg-black/20 rounded-xl border border-white/5 p-4 hover:border-primary/30 transition-colors">
+                        <div className={`flex-1 bg-black/20 rounded-xl border border-white/5 ${compact ? "p-3" : "p-4"} hover:border-primary/30 transition-colors`}>
                             <label className="text-sm text-muted-foreground mb-2 block">You get (estimated)</label>
-                            <div className="flex items-center gap-4">
+                            <div className={`flex items-center ${compact ? "gap-2 spark-embed-amount-row" : "gap-4"}`}>
                                 <div className="relative flex-1">
                                     {isEstimating && <Loader2 className="absolute left-0 top-1/2 -translate-y-1/2 w-5 h-5 animate-spin text-muted-foreground" />}
                                     <Input
                                         type="text"
                                         value={toAmount}
                                         readOnly
-                                        className={`text-3xl font-bold bg-transparent border-0 h-auto p-0 focus-visible:ring-0 shadow-none text-white placeholder:text-gray-700 ${isEstimating ? 'opacity-0' : 'opacity-100'}`}
+                                        className={`${compact ? "text-xl" : "text-3xl"} min-w-0 font-bold bg-transparent border-0 h-auto p-0 focus-visible:ring-0 shadow-none text-white placeholder:text-gray-700 ${isEstimating ? 'opacity-0' : 'opacity-100'}`}
                                         placeholder="0.00"
                                     />
                                 </div>
@@ -712,7 +727,7 @@ export function ExchangeWidget() {
                     </div>
 
                     {/* Rate Info */}
-                    <div className="flex items-center gap-4 text-xs font-medium mt-4 mb-8">
+                    <div className={`flex items-center gap-4 text-xs font-medium ${compact ? "mt-3 mb-5" : "mt-4 mb-8"}`}>
                         <span className="text-green-500 underline decoration-dotted underline-offset-2 cursor-help">No extra fees</span>
                         {fromCurrency && toCurrency && toAmount && (
                             <span className="text-muted-foreground">
@@ -722,7 +737,7 @@ export function ExchangeWidget() {
                     </div>
 
                     {/* Recipient Wallet */}
-                    <div className="space-y-4 mb-8">
+                    <div className={`space-y-4 ${compact ? "mb-5" : "mb-8"}`}>
                         <label className="text-sm text-muted-foreground">Recipient Wallet</label>
                         <div className="relative">
                             <Input
@@ -774,7 +789,7 @@ export function ExchangeWidget() {
                         </label>
                     </div>
 
-                    <div className="my-6 border-b border-white/5"></div>
+                    <div className={`${compact ? "my-4" : "my-6"} border-b border-white/5`}></div>
 
                     {/* Refund Wallet / Advanced */}
                     <Accordion type="single" collapsible className="w-full">
