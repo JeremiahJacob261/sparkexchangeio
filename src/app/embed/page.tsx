@@ -21,7 +21,7 @@ export default function EmbedPage() {
     return () => observer.disconnect();
   }, []);
 
-  return <main ref={frame} className="bg-background px-3 py-2 md:px-6 md:py-3">
-    <ExchangeWidget />
+  return <main ref={frame} className="bg-background px-1 py-2 md:px-6 md:py-3">
+    <ExchangeWidget compact />
   </main>;
 }
