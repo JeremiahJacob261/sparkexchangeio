@@ -591,7 +591,7 @@ export function ExchangeWidget({ compact = false }: { compact?: boolean } = {}) 
                         {/* You Send */}
                         <div className={`flex-1 bg-black/20 rounded-xl border border-white/5 ${compact ? "p-3" : "p-4"} hover:border-primary/30 transition-colors focus-within:border-primary/50`}>
                             <label className="text-sm text-muted-foreground mb-2 block">You send</label>
-                            <div className={`flex items-center ${compact ? "gap-2" : "gap-4"}`}>
+                            <div className={`flex items-center ${compact ? "gap-2 spark-embed-amount-row" : "gap-4"}`}>
                                 <Input
                                     type="number"
                                     value={fromAmount}
@@ -668,7 +668,7 @@ export function ExchangeWidget({ compact = false }: { compact?: boolean } = {}) 
                         {/* You Get */}
                         <div className={`flex-1 bg-black/20 rounded-xl border border-white/5 ${compact ? "p-3" : "p-4"} hover:border-primary/30 transition-colors`}>
                             <label className="text-sm text-muted-foreground mb-2 block">You get (estimated)</label>
-                            <div className={`flex items-center ${compact ? "gap-2" : "gap-4"}`}>
+                            <div className={`flex items-center ${compact ? "gap-2 spark-embed-amount-row" : "gap-4"}`}>
                                 <div className="relative flex-1">
                                     {isEstimating && <Loader2 className="absolute left-0 top-1/2 -translate-y-1/2 w-5 h-5 animate-spin text-muted-foreground" />}
                                     <Input
