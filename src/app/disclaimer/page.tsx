@@ -11,7 +11,7 @@ export default function Disclaimer() {
 
                 <div className="prose prose-invert max-w-none space-y-6 text-muted-foreground leading-relaxed">
                     <p className="text-xl font-medium text-foreground">
-                        SparkExchange does not provide financial, legal, or investment advice. Use of this platform is at your own risk.
+                        PlasmaX Exchange does not provide financial, legal, or investment advice. Use of this platform is at your own risk.
                     </p>
 
                     <section>

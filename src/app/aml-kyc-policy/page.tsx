@@ -11,7 +11,7 @@ export default function AMLKYCPolicy() {
 
                 <div className="prose prose-invert max-w-none space-y-6 text-muted-foreground leading-relaxed">
                     <p>
-                        SparkExchange operates a non-custodial model. We rely on ChangeNOW’s compliance tools for transaction monitoring.
+                        PlasmaX Exchange operates a non-custodial model. We rely on ChangeNOW’s compliance tools for transaction monitoring.
                     </p>
 
                     <p>

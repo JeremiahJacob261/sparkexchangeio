@@ -55,7 +55,7 @@ export function FeaturesSection() {
                             <span className="gradient-text">Decentralized</span> Exchange
                         </h2>
                         <p className="text-lg text-muted-foreground mb-8 leading-relaxed">
-                            Spark Exchange is a non-custodial cryptocurrency exchange service.
+                            PlasmaX Exchange is a non-custodial cryptocurrency exchange service.
                             We respect your privacy and security. Swap between 900+
                             cryptocurrencies with the best possible rates.
                         </p>

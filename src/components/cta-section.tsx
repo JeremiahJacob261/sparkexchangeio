@@ -20,7 +20,7 @@ export function CTASection() {
                         <span className="gradient-text">Exchange</span> Now
                     </h2>
                     <p className="text-lg text-muted-foreground mb-8 max-w-xl mx-auto">
-                        Join thousands of users who trust Spark Exchange for fast, secure, and anonymous cryptocurrency swaps.
+                        Join thousands of users who trust PlasmaX Exchange for fast, secure, and anonymous cryptocurrency swaps.
                     </p>
                     <div className="flex flex-col sm:flex-row gap-4 justify-center">
                         <Button variant="gradient" size="xl" asChild>

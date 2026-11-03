@@ -11,14 +11,14 @@ export function Footer() {
                     <div className="md:col-span-1">
                         <Link href="/" className="flex items-center gap-2 group mb-4">
                             <Image
-                                src="/favicon.jpg"
-                                alt="Spark Exchange Logo"
+                                src="/assets/plasmax-mark.svg"
+                                alt="PlasmaX logo"
                                 width={40}
                                 height={40}
                                 className="rounded-xl shadow-lg shadow-amber-500/25"
                             />
-                            <span className="text-xl font-bold gradient-text">
-                                Spark Exchange
+                            <span className="text-xl font-bold text-white">
+                                PlasmaX
                             </span>
                         </Link>
                         <p className="text-sm text-muted-foreground leading-relaxed">
@@ -27,7 +27,7 @@ export function Footer() {
                         {/* Social Icons */}
                         <div className="flex gap-4 mt-6">
                             <a
-                                href="https://x.com/SparkExchangeDX"
+                                href="https://twitter.com/plasma1337x"
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition-all duration-200"
@@ -58,7 +58,7 @@ export function Footer() {
                         <ul className="space-y-3">
                             <li>
                                 <Link
-                                    href="#about"
+                                    href="/exchange#about"
                                     className="text-sm text-muted-foreground hover:text-primary transition-colors"
                                 >
                                     About us
@@ -66,7 +66,7 @@ export function Footer() {
                             </li>
                             <li>
                                 <Link
-                                    href="#contact"
+                                    href="/exchange#contact"
                                     className="text-sm text-muted-foreground hover:text-primary transition-colors"
                                 >
                                     Contact us
@@ -74,7 +74,7 @@ export function Footer() {
                             </li>
                             <li>
                                 <Link
-                                    href="#faq"
+                                    href="/exchange#faq"
                                     className="text-sm text-muted-foreground hover:text-primary transition-colors"
                                 >
                                     FAQ
@@ -136,7 +136,7 @@ export function Footer() {
                         <ul className="space-y-3">
                             <li>
                                 <Link
-                                    href="#faq"
+                                    href="/exchange#faq"
                                     className="text-sm text-muted-foreground hover:text-primary transition-colors"
                                 >
                                     FAQ
@@ -157,7 +157,7 @@ export function Footer() {
                 {/* Bottom Bar */}
                 <div className="border-t border-border/50 mt-12 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
                     <p className="text-sm text-muted-foreground">
-                        © 2026 Spark Exchange. All rights reserved.
+                        © 2026 PlasmaX. All rights reserved.
                     </p>
                     <div className="flex gap-6">
                         <Link

@@ -22,7 +22,7 @@ export default function RiskDisclosure() {
                     <section>
                         <h2 className="text-2xl font-semibold text-foreground mb-4">Volatility:</h2>
                         <p>
-                            The price of cryptocurrencies can change rapidly. SparkExchange is not responsible for price fluctuations
+                            The price of cryptocurrencies can change rapidly. PlasmaX Exchange is not responsible for price fluctuations
                             during the swap process.
                         </p>
                     </section>

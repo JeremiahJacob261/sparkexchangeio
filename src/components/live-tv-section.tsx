@@ -225,7 +225,7 @@ export function LiveTVSection() {
       <div className="container mx-auto px-4">
         <div className={styles.heading}>
           <div>
-            <h1 id="live-tv-heading" className="text-3xl md:text-4xl font-bold mb-4">Live TV on <span className="text-primary">SparkExchange</span></h1>
+            <h1 id="live-tv-heading" className="text-3xl md:text-4xl font-bold mb-4">Live TV on <span className="text-primary">PlasmaX Exchange</span></h1>
             <p className="text-lg text-muted-foreground">Find a channel, settle in, and watch right here.</p>
           </div>
           <a href="https://plasmax.io/" target="_blank" rel="noopener noreferrer" className={styles.fullPlayer}>Visit Plasmax <span className="sr-only">(opens in a new tab)</span></a>

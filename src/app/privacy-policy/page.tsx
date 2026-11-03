@@ -11,11 +11,11 @@ export default function PrivacyPolicy() {
 
                 <div className="prose prose-invert max-w-none space-y-6 text-muted-foreground leading-relaxed">
                     <p>
-                        SparkExchange (“we,” “our,” “us”) respects your privacy and is committed to protecting your personal data.
+                        PlasmaX Exchange (“we,” “our,” “us”) respects your privacy and is committed to protecting your personal data.
                         This Privacy Policy explains how we collect, use, and protect information when you use our platform.
                     </p>
                     <p>
-                        SparkExchange operates as a non-custodial cryptocurrency exchange and facilitates swaps through third-party providers,
+                        PlasmaX Exchange operates as a non-custodial cryptocurrency exchange and facilitates swaps through third-party providers,
                         including ChangeNOW.
                     </p>
 
@@ -42,7 +42,7 @@ export default function PrivacyPolicy() {
                     <section>
                         <h2 className="text-2xl font-semibold text-foreground mb-4">Third-Party Services:</h2>
                         <p>
-                            SparkExchange integrates ChangeNOW and blockchain networks. Each third party operates under its own privacy policy.
+                            PlasmaX Exchange integrates ChangeNOW and blockchain networks. Each third party operates under its own privacy policy.
                         </p>
                     </section>
 

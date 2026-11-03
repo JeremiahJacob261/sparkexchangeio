@@ -8,7 +8,7 @@ export function VideoSection() {
                         <span className="gradient-text">How to Swap</span>
                     </h2>
                     <p className="text-muted-foreground text-lg">
-                        See SparkExchange in action
+                        See PlasmaX Exchange in action
                     </p>
                 </div>
 

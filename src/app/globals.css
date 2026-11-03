@@ -238,3 +238,18 @@ html { scroll-padding-top: 5.5rem; }
   html { scroll-behavior: smooth; }
 }
 
+
+/* Shared PlasmaX landing surface. */
+.platform-home { background: #191120; color: #fff; }
+.platform-button { display:inline-flex; align-items:center; justify-content:center; gap:.65rem; min-height:3.25rem; padding:.8rem 1.25rem; border-radius:.65rem; font-weight:600; }
+.platform-button-primary { background:#693695; color:#fff; }
+.platform-button-primary:hover { background:#55277e; }
+.platform-button-outline { border:1px solid #a791b9; color:#fff; }
+.platform-button-outline:hover { background:#34243f; }
+.platform-services { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); border-top:1px solid #594b64; border-bottom:1px solid #594b64; }
+.platform-service { padding:2.5rem 2.5rem 2.5rem 0; color:#cfb0ed; }
+.platform-service + .platform-service { border-left:1px solid #594b64; padding-left:2.5rem; }
+.platform-service h2 { color:#fff; font-size:1.7rem; font-weight:700; margin-top:1.25rem; }
+.platform-service p { color:#ded3e6; line-height:1.65; max-width:36ch; margin-top:.75rem; }
+.platform-service a { display:inline-flex; align-items:center; gap:.5rem; margin-top:1.5rem; color:#e7d1f8; font-weight:600; }
+@media (max-width:700px) { .platform-services { grid-template-columns:1fr; } .platform-service { padding:2rem 0; } .platform-service + .platform-service { border-left:0; border-top:1px solid #594b64; padding-left:0; } }

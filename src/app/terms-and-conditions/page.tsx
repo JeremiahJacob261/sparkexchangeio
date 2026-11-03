@@ -11,13 +11,13 @@ export default function TermsAndConditions() {
 
                 <div className="prose prose-invert max-w-none space-y-6 text-muted-foreground leading-relaxed">
                     <p>
-                        By using SparkExchange, you agree to these Terms.
+                        By using PlasmaX Exchange, you agree to these Terms.
                     </p>
 
                     <section>
                         <h2 className="text-2xl font-semibold text-foreground mb-4">Nature of Service:</h2>
                         <p>
-                            SparkExchange is a non-custodial platform. We do not hold funds, control wallets, or provide financial advice.
+                            PlasmaX Exchange is a non-custodial platform. We do not hold funds, control wallets, or provide financial advice.
                             All swaps are executed via ChangeNOW.
                         </p>
                     </section>
@@ -46,7 +46,7 @@ export default function TermsAndConditions() {
                     <section>
                         <h2 className="text-2xl font-semibold text-foreground mb-4">Limitation of Liability:</h2>
                         <p>
-                            SparkExchange is not liable for losses, failed transactions, incorrect addresses, or third-party issues.
+                            PlasmaX Exchange is not liable for losses, failed transactions, incorrect addresses, or third-party issues.
                         </p>
                     </section>
 
