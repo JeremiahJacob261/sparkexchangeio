@@ -228,7 +228,7 @@ export function LiveTVSection() {
             <h1 id="live-tv-heading" className="text-3xl md:text-4xl font-bold mb-4">Live TV on <span className="text-primary">SparkExchange</span></h1>
             <p className="text-lg text-muted-foreground">Find a channel, settle in, and watch right here.</p>
           </div>
-          <a href="https://free-iptv-player-sigma.vercel.app/iptv-player/" target="_blank" rel="noopener noreferrer" className={styles.fullPlayer}>Open full IPTV player <span className="sr-only">(opens in a new tab)</span></a>
+          <a href="https://plasmax.io/" target="_blank" rel="noopener noreferrer" className={styles.fullPlayer}>Visit Plasmax <span className="sr-only">(opens in a new tab)</span></a>
         </div>
         <p className={styles.directoryStatus} role="status">
           {loading ? "Loading channels…" : directoryError || `${catalog.total.toLocaleString()} channels loaded. Select a channel to watch.`}
@@ -293,3 +293,4 @@ export function LiveTVSection() {
     </section>
   );
 }
+
