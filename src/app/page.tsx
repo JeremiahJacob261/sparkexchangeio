@@ -26,12 +26,6 @@ export default function Home() {
         <DeferredLandingSection kind="tv" />
       </div>
 
-      {/* How It Works Section */}
-      <HowItWorksSection />
-
-      {/* Video Section */}
-      <VideoSection />
-
       {/* Crypto Exchange Section */}
       <section id="exchange" className="relative pt-24 md:pt-32 pb-20 overflow-hidden">
         {/* Background Effects */}
@@ -113,6 +107,12 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* How It Works Section */}
+      <HowItWorksSection />
+
+      {/* Video Section */}
+      <VideoSection />
 
       {/* Speedtest Section */}
       <DeferredLandingSection kind="speedtest" />
