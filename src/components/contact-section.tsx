@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Send, Loader2, Mail, MessageSquare, AlertCircle } from "lucide-react";
 
-const SUPPORT_EMAIL = "sparkexchangedex@gmail.com";
+const SUPPORT_EMAIL = "plasma1337x@gmail.com";
 
 export function ContactSection() {
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -75,7 +75,7 @@ export function ContactSection() {
                                 <div>
                                     <p className="font-medium">Email Support</p>
                                     <p className="text-sm text-muted-foreground">
-                                        sparkexchangedex@gmail.com
+                                        plasma1337x@gmail.com
                                     </p>
                                 </div>
                             </div>
