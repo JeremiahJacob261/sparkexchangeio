@@ -371,15 +371,30 @@ export function ExchangeWidget() {
             if (data.success) {
                 setTxResult(data.exchange);
 
-                const txHistory = JSON.parse(localStorage.getItem("txHistory") || "[]");
-                txHistory.push({
-                    id: data.exchange.id,
-                    date: new Date().toISOString(),
-                    from: fromCurrency.ticker,
-                    to: toCurrency.ticker,
-                    amount: fromAmount
-                });
-                localStorage.setItem("txHistory", JSON.stringify(txHistory));
+                try {
+                    const txHistory = JSON.parse(localStorage.getItem("txHistory") || "[]");
+                    txHistory.push({
+                        id: data.exchange.id,
+                        date: new Date().toISOString(),
+                        from: fromCurrency.ticker,
+                        to: toCurrency.ticker,
+                        amount: fromAmount
+                    });
+                    localStorage.setItem("txHistory", JSON.stringify(txHistory));
+                } catch {
+                    // Third-party storage can be disabled inside the PlasmaX embed.
+                }
+
+                if (window.parent !== window) {
+                    try {
+                        const parentOrigin = new URL(document.referrer).origin;
+                        if (["https://plasmax.io", "https://www.plasmax.io"].includes(parentOrigin)) {
+                            window.parent.postMessage({ type: "sparkexchange:exchange-created", id: data.exchange.id }, parentOrigin);
+                        }
+                    } catch {
+                        // The exchange remains available in the embedded success view.
+                    }
+                }
 
                 // Success Dialog
                 setDialogConfig({
