@@ -27,12 +27,27 @@ export async function GET(request: NextRequest) {
         //     );
         // }
 
-        // Fetch all visitor logs with location data
-        const { data: visitors, error } = await supabase
+        // Keep the existing API default as all-time; consumers can request a
+        // rolling day or week using the visit_date captured at ingestion.
+        const requestedPeriod = new URL(request.url).searchParams.get('period');
+        const period = requestedPeriod === 'daily' || requestedPeriod === 'weekly' || requestedPeriod === 'all-time'
+            ? requestedPeriod
+            : 'all-time';
+        const today = new Date().toISOString().slice(0, 10);
+        const start = new Date(`${today}T00:00:00.000Z`);
+        if (period === 'weekly') start.setUTCDate(start.getUTCDate() - 6);
+        const startDate = start.toISOString().slice(0, 10);
+
+        let visitorQuery = supabase
             .from('visitor_logs')
             .select('country, country_code, city, latitude, longitude')
             .not('latitude', 'is', null)
             .not('longitude', 'is', null);
+
+        if (period === 'daily') visitorQuery = visitorQuery.eq('visit_date', today);
+        if (period === 'weekly') visitorQuery = visitorQuery.gte('visit_date', startDate).lte('visit_date', today);
+
+        const { data: visitors, error } = await visitorQuery;
 
         if (error) {
             console.error('[Visitors API] Error fetching visitors:', error);
